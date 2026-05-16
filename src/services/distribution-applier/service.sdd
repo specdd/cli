@@ -1,0 +1,65 @@
+Spec: Distribution Applier Service
+Purpose:
+  Apply files from a SpecDD distribution zip into a target directory without overwriting existing project files except the project bootstrap file.
+
+Structure:
+  distribution-applier.ts: Distribution applier service implementation.
+  distribution-applier.test.ts: Distribution applier tests.
+
+Owns:
+  distribution-applier.ts
+  distribution-applier.test.ts
+
+References:
+  ../../infrastructure/file-system.sdd
+  ../logger/service.sdd
+
+Must:
+  Accept Logger and FileSystem through constructor parameters.
+  Accept a path to a distribution .zip file and a target directory path.
+  Inspect file entries inside the zip archive.
+  Check target file existence through FileSystem before writing.
+  Explicitly create parent directories through FileSystem before writing files.
+  Write a zip file entry when the corresponding target file does not exist.
+  Overwrite an existing target file only when the normalized relative path is .specdd/bootstrap.md.
+  Leave every other existing target file unchanged.
+  Create parent directories needed for files that are written.
+  Return paths for files written, files overwritten, and existing files skipped.
+  Reject zip entries that resolve outside the target directory.
+
+Must not:
+  Delete target files or directories.
+  Overwrite existing files other than .specdd/bootstrap.md.
+  Write files outside the target directory.
+  Execute unzip or any other external command.
+
+Depends on:
+  CliError
+  Logger
+  FileSystem
+  jszip
+  Node.js path handling
+
+Exposes:
+  DistributionApplier.applyDistribution(request)
+
+Accepts:
+  DistributionApplyRequest
+
+Returns:
+  DistributionApplyResult
+
+Raises:
+  DistributionZipNotFoundError
+  DistributionZipReadError
+  DistributionUnsafeEntryPathError
+  DistributionTargetWriteError
+
+Handles:
+  empty target directory
+  populated target directory
+  missing target file
+  existing .specdd/bootstrap.md target file
+  existing non-bootstrap target file
+  nested zip file entry
+  unsafe zip file entry path

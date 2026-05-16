@@ -1,0 +1,22 @@
+Spec: Temp Directory
+Purpose:
+  Provide a Node temporary directory adapter.
+
+Structure:
+  temp-directory.ts: Temp directory adapter implementation.
+  temp-directory.test.ts: Temp directory adapter tests.
+
+Owns:
+  temp-directory.ts
+  temp-directory.test.ts
+
+Must:
+  Expose create(prefix).
+  Create a unique directory under the operating system temporary directory.
+  Use the provided prefix in the created directory name.
+
+Depends on:
+  Node.js temporary directory support
+
+Exposes:
+  TempDirectory.create(prefix)

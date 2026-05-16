@@ -1,0 +1,40 @@
+Spec: Bootstrap Metadata Service
+Purpose:
+  Read front matter values from a local SpecDD bootstrap file.
+
+Structure:
+  bootstrap-metadata.ts: Bootstrap metadata service implementation.
+  bootstrap-metadata.test.ts: Bootstrap metadata service tests.
+
+Owns:
+  bootstrap-metadata.ts
+  bootstrap-metadata.test.ts
+
+References:
+  ../../constants.sdd
+  ../../infrastructure/file-system.sdd
+
+Must:
+  Accept FileSystem through the constructor.
+  Check whether .specdd/bootstrap.md exists in a target directory.
+  Read Version and Changelog front matter values from .specdd/bootstrap.md.
+  Strip matching single or double quotes from returned front matter values.
+
+Must not:
+  Validate version semantics.
+  Modify files.
+  Perform network operations.
+
+Depends on:
+  FileSystem
+  CliError
+
+Exposes:
+  BootstrapMetadata
+  BootstrapMetadata.hasBootstrap(targetDirectoryPath)
+  BootstrapMetadata.readVersion(targetDirectoryPath)
+  BootstrapMetadata.readChangelog(targetDirectoryPath)
+
+Raises:
+  BootstrapMetadataError
+  BootstrapMetadataMissingFieldError

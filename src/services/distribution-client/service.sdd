@@ -1,0 +1,66 @@
+Spec: Distribution Client Service
+Purpose:
+  Resolve and download requested SpecDD releases from GitHub releases.
+
+Structure:
+  distribution-client.ts: Distribution client service implementation.
+  distribution-client.test.ts: Distribution client tests.
+
+Owns:
+  distribution-client.ts
+  distribution-client.test.ts
+
+References:
+  ../../infrastructure/fetch-client.sdd
+  ../../infrastructure/file-system.sdd
+  ../../infrastructure/temp-directory.sdd
+  ../logger/service.sdd
+
+Must:
+  Accept Logger, FetchClient, FileSystem, and TempDirectory through constructor parameters.
+  Accept an explicit release version or latest.
+  Expect explicit release versions to be validated by the calling flow before download.
+  Use GitHub repository specdd/specdd for release lookup.
+  Treat explicit release versions as GitHub release tags.
+  Resolve requested release versions without downloading assets.
+  Resolve latest to the current GitHub latest release before downloading assets.
+  Download the specdd.zip asset to a unique temporary folder.
+  Download the specdd.zip.asc asset to the same temporary folder.
+  Return the resolved release version and local paths for both downloaded files.
+  Log release resolution and successful asset downloads.
+
+Must not:
+  Write downloaded release files outside a temporary folder.
+
+Depends on:
+  CliError
+  Logger
+  FetchClient
+  FileSystem
+  TempDirectory
+  GitHub releases
+
+Exposes:
+  DistributionClient.resolveReleaseVersion(request)
+  DistributionClient.downloadRelease(request)
+
+Accepts:
+  DistributionReleaseRequest
+
+Returns:
+  DistributionReleaseVersion
+  DistributionReleaseDownload
+
+Raises:
+  DistributionReleaseNotFoundError
+  DistributionAssetNotFoundError
+  DistributionDownloadError
+  DistributionFilesystemError
+
+Handles:
+  release version resolution without asset downloads
+  latest release request
+  explicit release version request
+  missing specdd.zip release asset
+  missing specdd.zip.asc release asset
+  failed asset download

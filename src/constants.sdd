@@ -1,0 +1,32 @@
+Spec: Shared Constants
+Purpose:
+  Provide shared values for SpecDD paths, release metadata, URLs, version parsing, and common CLI text.
+
+Structure:
+  constants.ts: Shared constants implementation.
+
+Owns:
+  constants.ts
+
+Can modify:
+  constants.ts
+
+Must:
+  Define SpecDD file and directory paths used across commands and services.
+  Define public SpecDD help and changelog URLs used in CLI output.
+  Define GitHub release API coordinates used for distribution lookup.
+  Define distribution asset names used for release downloads.
+  Define version parsing patterns shared by services.
+  Define common CLI footer text shared by command help output.
+  Keep values static and free of runtime side effects.
+
+Must not:
+  Read environment variables.
+  Perform filesystem or network operations.
+
+Exposes:
+  SpecDD path constants
+  SpecDD URL constants
+  distribution asset constants
+  version parsing constants
+  CLI text constants

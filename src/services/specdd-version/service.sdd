@@ -1,0 +1,34 @@
+Spec: SpecDD Version Service
+Purpose:
+  Validate and compare SpecDD release version strings.
+
+Structure:
+  specdd-version.ts: SpecDD version service implementation.
+  specdd-version.test.ts: SpecDD version service tests.
+
+Owns:
+  specdd-version.ts
+  specdd-version.test.ts
+
+References:
+  ../../constants.sdd
+
+Must:
+  Accept dotted numeric versions such as 1.2 or 1.2.3.
+  Reject versions with a leading v.
+  Provide a numeric suggestion when a rejected version has a leading v.
+  Compare versions numerically, treating missing parts as zero.
+
+Must not:
+  Read files.
+  Perform network operations.
+
+Exposes:
+  SpecDDVersion
+  SpecDDVersion.isValid(version)
+  SpecDDVersion.suggest(version)
+  SpecDDVersion.validate(version)
+  SpecDDVersion.compare(leftVersion, rightVersion)
+
+Raises:
+  SpecDDInvalidVersionError

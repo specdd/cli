@@ -1,0 +1,67 @@
+Spec: Update Checker Service
+Purpose:
+  Check the local SpecDD bootstrap version against the latest available release.
+
+Structure:
+  update-checker.ts: Update checker service implementation.
+  update-checker.test.ts: Update checker tests.
+
+Owns:
+  update-checker.ts
+  update-checker.test.ts
+
+References:
+  ../bootstrap-metadata/service.sdd
+  ../logger/service.sdd
+  ../specdd-version/service.sdd
+  ../distribution-client/service.sdd
+
+Must:
+  Accept Logger, DistributionClient, SpecDDVersion, and BootstrapMetadata through constructor parameters.
+  Expose check(request) for the check-update command flow.
+  Accept the current working directory as the target directory.
+  Read local .specdd/bootstrap.md front matter Version through BootstrapMetadata when the file exists.
+  Resolve the latest release version through DistributionClient without downloading assets.
+  Print the local SpecDD version when it exists.
+  Print that no local SpecDD version was found when .specdd/bootstrap.md does not exist.
+  Print the latest remote SpecDD version.
+  Validate local and latest release version values through SpecDDVersion.
+  Compare local Version with the latest release version through SpecDDVersion when a local Version exists.
+  Inform the user when the local Version is older than the latest release version.
+  Include https://specdd.ai/changelog/ when informing the user that an update is available.
+  Return whether an update is available.
+  Return the local version when found.
+  Return the latest remote version.
+
+Must not:
+  Download, verify, or apply distribution assets.
+  Modify files.
+  Treat a missing local bootstrap as an available update.
+
+Depends on:
+  CliError
+  Logger
+  SpecDDVersion
+  BootstrapMetadata
+  DistributionClient
+
+Exposes:
+  UpdateChecker.check(request)
+
+Accepts:
+  UpdateCheckRequest
+
+Returns:
+  UpdateCheckResult
+
+Raises:
+  UpdateCheckError
+  UpdateCheckInvalidVersionError
+
+Handles:
+  missing local bootstrap
+  local Version equal to latest release version
+  local Version newer than latest release version
+  local Version older than latest release version
+  invalid local Version
+  invalid latest release version

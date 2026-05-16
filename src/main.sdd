@@ -1,0 +1,63 @@
+Spec: Main Entrypoint
+Purpose:
+  Assemble and run the specdd CLI.
+
+Structure:
+  main.ts: Main entrypoint implementation emitted as main.js.
+  main.test.ts: Main entrypoint tests.
+
+Owns:
+  main.ts
+  main.test.ts
+
+References:
+  container.sdd
+  commands/check-update.sdd
+  commands/init.sdd
+  commands/update.sdd
+
+Must:
+  Expose a Main class.
+  Accept Container through the constructor.
+  Build the root specdd command.
+  Attach the init command instance exposed by Container.
+  Attach the update command instance exposed by Container.
+  Attach the check-update command instance exposed by Container.
+  Parse provided argv values when run is called.
+  Configure Commander exits so parsing can be tested without process exit side effects.
+  Be testable without executing process-level side effects.
+  Self-run only when loaded as the process entrypoint outside test execution.
+  Detect process entrypoint through real paths so package-bin symlinks run.
+  Render expected CLI errors as logger error notices without stack traces.
+  Exit with a non-zero status after rendering expected CLI errors.
+  Rethrow unexpected non-Commander errors.
+  Set the CLI name to specdd.
+  Set a concise root command description for help output.
+  Include the project copyright notice in root help output.
+  Include SpecDD framework and CLI project help links in root help output.
+
+Must not:
+  Construct command handlers directly.
+  Implement command behavior.
+  Download, verify, or apply distributions directly.
+  Exit the process during tests.
+
+Depends on:
+  commander
+  Container
+  CliError
+  Logger
+
+Exposes:
+  Main
+  Main.createCommand()
+  Main.run(argv)
+  Main.selfRun(request)
+
+Accepts:
+  argv values
+  self-run process dependencies
+
+Returns:
+  commander Command
+  Promise<void>

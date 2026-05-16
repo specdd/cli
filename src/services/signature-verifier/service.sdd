@@ -1,0 +1,68 @@
+Spec: Signature Verifier Service
+Purpose:
+  Verify a downloaded SpecDD distribution zip against its detached OpenPGP signature using bundled trusted project keys.
+
+Structure:
+  signature-verifier.ts: Signature verifier service implementation.
+  trusted-keys.ts: Trusted release signing key metadata and armored public key strings.
+  signature-verifier.test.ts: Signature verifier tests.
+
+Owns:
+  signature-verifier.ts
+  trusted-keys.ts
+  signature-verifier.test.ts
+
+References:
+  ../../infrastructure/file-system.sdd
+  ../logger/service.sdd
+
+Must:
+  Accept Logger and FileSystem through constructor parameters.
+  Accept a path to a distribution .zip file and a path to its matching .zip.asc detached signature file.
+  Read the zip and detached signature through FileSystem.
+  Verify the detached signature against the exact zip file bytes.
+  Load public release signing keys embedded in trusted-keys.ts as armored OpenPGP string constants.
+  Pin trusted signing keys by full OpenPGP fingerprint.
+  Accept signatures only from fingerprints listed in trusted-keys.ts.
+  Support release signing key rotation by allowing more than one trusted fingerprint.
+  Return the verified signer fingerprint and validated file paths.
+
+Must not:
+  Execute gpg or any other external command.
+  Fetch public keys from the network.
+  Trust public keys downloaded with the release being verified.
+  Accept signatures from unknown fingerprints.
+  Modify the provided zip or signature files.
+
+Depends on:
+  CliError
+  Logger
+  FileSystem
+  openpgp
+  Embedded release signing public key strings
+  Trusted release signing fingerprint allowlist
+
+Exposes:
+  SignatureVerifier.verifyDistribution(request)
+
+Accepts:
+  SignatureVerificationRequest
+
+Returns:
+  SignatureVerificationResult
+
+Raises:
+  SignatureInputNotFoundError
+  SignaturePublicKeyLoadError
+  SignatureUnknownSignerError
+  SignatureInvalidError
+  SignatureVerificationError
+
+Handles:
+  valid detached signature
+  invalid detached signature
+  missing zip file
+  missing signature file
+  malformed signature file
+  malformed bundled public key
+  signature made by an untrusted key

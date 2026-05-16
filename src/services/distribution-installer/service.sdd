@@ -1,0 +1,89 @@
+Spec: Distribution Installer Service
+Purpose:
+  Coordinate downloading, verifying, and applying SpecDD distributions for init and update flows.
+
+Structure:
+  distribution-installer.ts: Distribution installer service implementation.
+  distribution-installer.test.ts: Distribution installer tests.
+
+Owns:
+  distribution-installer.ts
+  distribution-installer.test.ts
+
+References:
+  ../../infrastructure/file-system.sdd
+  ../bootstrap-metadata/service.sdd
+  ../logger/service.sdd
+  ../specdd-version/service.sdd
+  ../distribution-client/service.sdd
+  ../signature-verifier/service.sdd
+  ../distribution-applier/service.sdd
+
+Must:
+  Accept Logger, FileSystem, SpecDDVersion, BootstrapMetadata, DistributionClient, SignatureVerifier, and DistributionApplier through constructor parameters.
+  Expose init(request) for the init command flow.
+  Expose update(request) for the update command flow.
+  Accept latest or a dotted numeric release version such as 1.2 or 1.2.3.
+  Reject release versions with a leading v and suggest the numeric value.
+  Create a missing init target directory.
+  Allow init in a directory that does not contain .specdd/bootstrap.md.
+  Fail init when the target already contains .specdd/bootstrap.md.
+  Require update in an existing directory that contains .specdd/bootstrap.md.
+  Read local bootstrap Version and Changelog through BootstrapMetadata.
+  Validate and compare release versions through SpecDDVersion.
+  Compare the local bootstrap Version with the requested or latest release before downloading update assets.
+  Skip update when the local bootstrap Version matches the requested release or is equal to or newer than latest.
+  Inform the user when update is not needed.
+  Check target state through FileSystem before downloading.
+  Download the requested distribution through DistributionClient.
+  Verify the downloaded zip and signature through SignatureVerifier before applying files.
+  Apply the verified distribution through DistributionApplier.
+  Ensure .specdd/.gitignore exists after init and update, including no-op updates.
+  Preserve an existing .specdd/.gitignore.
+  Invite the user to visit the updated bootstrap Changelog link after update applies files.
+  Return install details after an install and no-op details when update is not needed.
+
+Must not:
+  Apply a distribution before signature verification succeeds.
+  Download, verify, or apply a distribution when the requested update is not needed.
+  Depend on the distribution zip to contain .specdd/.gitignore.
+  Overwrite an existing .specdd/.gitignore.
+  Print the Changelog invitation when update is not needed.
+  Print the Changelog invitation for init.
+  Treat update as an initializer for directories without .specdd.
+
+Depends on:
+  CliError
+  Logger
+  FileSystem
+  SpecDDVersion
+  BootstrapMetadata
+  DistributionClient
+  SignatureVerifier
+  DistributionApplier
+
+Exposes:
+  DistributionInstaller.init(request)
+  DistributionInstaller.update(request)
+
+Accepts:
+  DistributionInitRequest
+  DistributionUpdateRequest
+
+Returns:
+  DistributionInstallResult
+
+Raises:
+  DistributionTargetAlreadyInitializedError
+  DistributionTargetNotInitializedError
+  DistributionInvalidVersionError
+  DistributionInstallError
+
+Handles:
+  init in new or existing non-SpecDD target directory
+  init in already initialized target directory
+  update in initialized target directory
+  update needed and update not needed
+  missing or existing local .specdd/.gitignore
+  update in non-SpecDD target directory
+  signature verification failure

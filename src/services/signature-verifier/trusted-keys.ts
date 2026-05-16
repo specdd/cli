@@ -1,0 +1,26 @@
+export type TrustedReleaseSigningKey = {
+  readonly fingerprint: string;
+  readonly armoredPublicKey: string;
+};
+
+export const CODE_SIGNING_2026_01_PUBLIC_KEY = `-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mDMEagX54BYJKwYBBAHaRw8BAQdAyMNrqfbVd13S3tx7zR8+UBhSe1ndB/mVCjs7
+fsZlwSS0Q1NwZWNERCAoVGhpcyBrZXkgaXMgdXNlZCB0byBzaWduIFNwZWNERCBy
+ZWxlYXNlcykgPGhlbGxvQHNwZWNkZC5haT6IkwQTFgoAOxYhBP2HMTJW4IxIaVH5
+CRNy04VpEWvFBQJqBfngAhsDBQsJCAcCAiICBhUKCQgLAgQWAgMBAh4HAheAAAoJ
+EBNy04VpEWvF7JMBALj96yfYccWlkhlhiWDd0U7Zhi1ejMY2Qet/za2giZJoAP4q
+FdSt4mwjOtpOAudZnucFSqn/z2SOS3xT/T6PyEZAArg4BGoF+eASCisGAQQBl1UB
+BQEBB0AJxB5/4zBNCJyRJkj+ES+DKhXfhRGqoaCcSNIulC0LdwMBCAeIeAQYFgoA
+IBYhBP2HMTJW4IxIaVH5CRNy04VpEWvFBQJqBfngAhsMAAoJEBNy04VpEWvFwLUA
+/3Uejko7YB5VnzRWLEJBWV7zJ41asyt0ZuvXJ4O+9M2rAP4v3t+IneryPQozw8e0
+7JFpjXi+LQ2DFinTH/7mCFr9CQ==
+=Dbd8
+-----END PGP PUBLIC KEY BLOCK-----`;
+
+export const TRUSTED_RELEASE_SIGNING_KEYS: readonly TrustedReleaseSigningKey[] = [
+  {
+    armoredPublicKey: CODE_SIGNING_2026_01_PUBLIC_KEY,
+    fingerprint: 'fd87313256e08c486951f9091372d38569116bc5',
+  },
+];

@@ -1,0 +1,52 @@
+Spec: Logger Service
+Purpose:
+  Provide a shared CLI notice logger with level-specific colored output for commands and services.
+
+Structure:
+  logger.ts: Logger service implementation.
+  logger.test.ts: Logger service tests.
+
+Owns:
+  logger.ts
+  logger.test.ts
+
+References:
+  ../config/service.sdd
+
+Must:
+  Expose a simple method-based API for log levels.
+  Support error, warn, log, info, and debug notice levels.
+  Color each notice level consistently with chalk.
+  Write error notices to stderr.
+  Write non-error notices to stdout.
+  Accept Config through constructor parameters.
+  Read log_level from Config.
+  Treat log_level as the minimum notice level to write.
+  Support error, warning, warn, log, info, and debug log_level values.
+  Default to info when log_level is not configured.
+  Validate log_level before writing notices.
+  Allow output streams to be injected for tests.
+  Treat ordinary notice writes as best-effort and not throw for normal logger use.
+
+Depends on:
+  CliError
+  Config
+  chalk
+  Node.js stdout and stderr streams
+
+Exposes:
+  Logger.error(message)
+  Logger.warn(message)
+  Logger.log(message)
+  Logger.info(message)
+  Logger.debug(message)
+
+Accepts:
+  LoggerOptions
+  string notice message
+
+Returns:
+  void
+
+Raises:
+  InvalidLogLevelError

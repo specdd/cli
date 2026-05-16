@@ -1,0 +1,43 @@
+{
+  "name": "specdd",
+  "version": "1.0.0",
+  "description": "SpecDD CLI is a tool for working with SpecDD framework-enabled projects",
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "yarn@1.22.22",
+  "main": "./dist/main.js",
+  "types": "./dist/main.d.ts",
+  "bin": {
+    "specdd": "./dist/main.js"
+  },
+  "files": [
+    "dist",
+    "npm-shrinkwrap.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "security:audit": "yarn audit --groups \"dependencies devDependencies\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+    "test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
+    "prepack": "tsc -p tsconfig.build.json"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "chalk": "5.6.2",
+    "commander": "14.0.3",
+    "fast-glob": "3.3.3",
+    "jszip": "3.10.1",
+    "openpgp": "6.3.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/jest": "29.5.14",
+    "@types/node": "22.19.19",
+    "jest": "29.7.0",
+    "ts-jest": "29.4.9",
+    "typescript": "5.9.3"
+  }
+}

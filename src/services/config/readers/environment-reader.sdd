@@ -1,0 +1,31 @@
+Spec: Environment Reader
+Purpose:
+  Read Config values from environment variables.
+
+Structure:
+  environment-reader.ts: Environment reader implementation.
+  environment-reader.test.ts: Environment reader tests.
+
+Owns:
+  environment-reader.ts
+  environment-reader.test.ts
+
+Must:
+  Convert a config key to SPECDD_<UPPERCASE_KEY>.
+  Read values from a provided environment object.
+  Return null when the environment variable is not present.
+  Accept the environment object through constructor parameters.
+
+Depends on:
+  Node.js environment variable shape
+
+Exposes:
+  EnvironmentReader.get(key)
+
+Accepts:
+  config key
+  environment object
+
+Returns:
+  environment variable value
+  null

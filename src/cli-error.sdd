@@ -1,0 +1,17 @@
+Spec: CLI Error
+Purpose:
+  Mark expected errors that should be rendered as CLI messages instead of stack traces.
+
+Structure:
+  cli-error.ts: CLI error implementation.
+
+Owns:
+  cli-error.ts
+
+Must:
+  Expose a CliError base class.
+  Expose a type guard for CliError values.
+
+Exposes:
+  CliError
+  isCliError(error)
