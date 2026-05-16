@@ -31,6 +31,9 @@ brew install specdd
 With Docker:
 
 ```bash
+# Docker Hub
+docker run --rm specdd/cli:latest --help
+# GitHub Container Registry
 docker run --rm ghcr.io/specdd/cli:latest --help
 ```
 

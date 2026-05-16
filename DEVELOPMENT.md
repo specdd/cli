@@ -185,7 +185,7 @@ make build
 
 This updates shrinkwrap metadata, runs audits, typechecks, tests, builds, and verifies the package dry run.
 
-To publish a release and then update the Homebrew tap if the npm publish succeeds, run:
+To publish a release, update the Homebrew tap, and publish the Docker image after confirmation prompts, run:
 
 ```bash
 make release
@@ -199,7 +199,7 @@ make bump-homebrew
 
 The target reads the version from `package.json` by default. Use `VERSION=1.2.3` to override it.
 
-To build and push the official multi-architecture Docker image after the npm package has been published, run:
+To build and push the official multi-architecture Docker images after the npm package has been published, run:
 
 ```bash
 make docker-release
@@ -210,6 +210,8 @@ This publishes:
 ```text
 ghcr.io/specdd/cli:<version>
 ghcr.io/specdd/cli:latest
+specdd/cli:<version>
+specdd/cli:latest
 ```
 
 for:
