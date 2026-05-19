@@ -3,12 +3,12 @@ Purpose:
   Validate and compare SpecDD release version strings.
 
 Structure:
-  specdd-version.ts: SpecDD version service implementation.
-  specdd-version.test.ts: SpecDD version service tests.
+  ./specdd-version.ts: SpecDD version service implementation.
+  ./specdd-version.test.ts: SpecDD version service tests.
 
 Owns:
-  specdd-version.ts
-  specdd-version.test.ts
+  ./specdd-version.ts
+  ./specdd-version.test.ts
 
 References:
   ../../constants.sdd
@@ -24,11 +24,11 @@ Must not:
   Perform network operations.
 
 Exposes:
-  SpecDDVersion
-  SpecDDVersion.isValid(version)
-  SpecDDVersion.suggest(version)
-  SpecDDVersion.validate(version)
-  SpecDDVersion.compare(leftVersion, rightVersion)
+  @SpecDDVersion
+  @SpecDDVersion.isValid
+  @SpecDDVersion.suggest
+  @SpecDDVersion.validate
+  @SpecDDVersion.compare
 
 Raises:
-  SpecDDInvalidVersionError
+  @SpecDDInvalidVersionError

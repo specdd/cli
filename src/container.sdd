@@ -3,49 +3,49 @@ Purpose:
   Build and expose application service and command instances through explicit constructor wiring.
 
 Structure:
-  container.ts: Application container implementation.
-  container.test.ts: Container tests.
+  ./container.ts: Application container implementation.
+  ./container.test.ts: Container tests.
 
 Owns:
-  container.ts
-  container.test.ts
+  ./container.ts
+  ./container.test.ts
 
 References:
-  commands/check-update.sdd
-  commands/init.sdd
-  commands/update.sdd
-  infrastructure/fetch-client.sdd
-  infrastructure/file-system.sdd
-  infrastructure/temp-directory.sdd
-  services/bootstrap-metadata/service.sdd
-  services/config/service.sdd
-  services/config/readers/environment-reader.sdd
-  services/logger/service.sdd
-  services/specdd-version/service.sdd
-  services/distribution-client/service.sdd
-  services/update-checker/service.sdd
-  services/signature-verifier/service.sdd
-  services/distribution-applier/service.sdd
-  services/distribution-installer/service.sdd
+  ./commands/check-update.sdd
+  ./commands/init.sdd
+  ./commands/update.sdd
+  ./infrastructure/fetch-client.sdd
+  ./infrastructure/file-system.sdd
+  ./infrastructure/temp-directory.sdd
+  ./services/bootstrap-metadata/service.sdd
+  ./services/config/service.sdd
+  ./services/config/readers/environment-reader.sdd
+  ./services/logger/service.sdd
+  ./services/specdd-version/service.sdd
+  ./services/distribution-client/service.sdd
+  ./services/update-checker/service.sdd
+  ./services/signature-verifier/service.sdd
+  ./services/distribution-applier/service.sdd
+  ./services/distribution-installer/service.sdd
 
 Must:
   Construct shared service instances in one place.
   Construct infrastructure adapters in one place.
   Construct command instances in one place.
   Pass service dependencies through constructor parameters.
-  Expose the config service.
-  Expose the logger service.
-  Expose the SpecDD version service.
-  Expose the bootstrap metadata service.
-  Expose the distribution client service.
-  Expose the update checker service.
-  Expose the signature verifier service.
-  Expose the distribution applier service.
-  Expose the distribution installer service.
+  Expose the @Config service.
+  Expose the @Logger service.
+  Expose the @SpecDDVersion service.
+  Expose the @BootstrapMetadata service.
+  Expose the @DistributionClient service.
+  Expose the @UpdateChecker service.
+  Expose the @SignatureVerifier service.
+  Expose the @DistributionApplier service.
+  Expose the @DistributionInstaller service.
   Expose the check-update command instance.
   Expose the init command instance.
   Expose the update command instance.
-  Let commands receive the Container instance instead of constructing services directly.
+  Let commands receive the @Container instance instead of constructing services directly.
 
 Must not:
   Use autowiring, decorators, reflection, or a dependency injection framework.
@@ -53,26 +53,26 @@ Must not:
   Hide dependencies behind global service instances.
 
 Depends on:
-  FetchClient
-  FileSystem
-  TempDirectory
-  Config
-  Logger
-  SpecDDVersion
-  BootstrapMetadata
-  DistributionClient
-  UpdateChecker
-  SignatureVerifier
-  DistributionApplier
-  DistributionInstaller
-  Check Update Command
-  Init Command
-  Update Command
+  @FetchClient
+  @FileSystem
+  @TempDirectory
+  @Config
+  @Logger
+  @SpecDDVersion
+  @BootstrapMetadata
+  @DistributionClient
+  @UpdateChecker
+  @SignatureVerifier
+  @DistributionApplier
+  @DistributionInstaller
+  @createCheckUpdateCommand
+  @createInitCommand
+  @createUpdateCommand
 
 Exposes:
-  Container
-  Container.specDDVersion
-  Container.bootstrapMetadata
-  Container.checkUpdateCommand
-  Container.initCommand
-  Container.updateCommand
+  @Container
+  @Container.specDDVersion
+  @Container.bootstrapMetadata
+  @Container.checkUpdateCommand
+  @Container.initCommand
+  @Container.updateCommand

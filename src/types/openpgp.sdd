@@ -3,13 +3,30 @@ Purpose:
   Provide local TypeScript declarations for the OpenPGP API surface used by this project.
 
 Structure:
-  openpgp.d.ts: OpenPGP declaration shim.
+  ./openpgp.d.ts: OpenPGP declaration shim.
 
 Owns:
-  openpgp.d.ts
+  ./openpgp.d.ts
 
 Must:
   Declare only OpenPGP types and functions used by project code or tests.
 
 Exposes:
-  OpenPGP module declarations
+  @KeyID
+  @PublicKey
+  @PrivateKey
+  @Key
+  @Signature
+  @Message
+  @VerificationResult
+  @KeyPair
+  @UserID
+  @GenerateKeyOptions
+  @SignOptions
+  @VerifyOptions
+  @createMessage
+  @generateKey
+  @readKey
+  @readSignature
+  @sign
+  @verify

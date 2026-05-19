@@ -3,53 +3,56 @@ Purpose:
   Resolve configuration values from ordered config readers.
 
 Structure:
-  config.ts: Config service implementation.
-  config-defaults.ts: Config key defaults.
-  config-defaults.test.ts: Config defaults tests.
-  config-reader.ts: Config reader interface.
-  config.test.ts: Config service tests.
-  readers: Config source readers.
-  readers/*.sdd: Config reader specification.
+  ./config.ts: Config service implementation.
+  ./config-defaults.ts: Config key defaults.
+  ./config-defaults.test.ts: Config defaults tests.
+  ./config-reader.ts: Config reader interface.
+  ./config.test.ts: Config service tests.
+  ./readers: Config source readers.
+  ./readers/*.sdd: Config reader specification.
 
 Owns:
-  config.ts
-  config-defaults.ts
-  config-defaults.test.ts
-  config-reader.ts
-  config.test.ts
-  readers
+  ./config.ts
+  ./config-defaults.ts
+  ./config-defaults.test.ts
+  ./config-reader.ts
+  ./config.test.ts
+  ./readers
 
 References:
-  readers/environment-reader.sdd
+  ./readers/environment-reader.sdd
 
 Must:
-  Expose a get(key, defaultValue = null) API.
+  Expose @Config.get with key and defaultValue arguments.
   Provide log_level configured default of info.
-  Warn to stderr when get is called for a key with no configured default.
+  Warn to stderr when @Config.get is called for a key with no configured default.
   Query configured readers in order.
   Return the first non-null value returned by a reader.
   Return the call-provided defaultValue when no reader provides the key and defaultValue is not null.
   Return the configured default for the key when no reader provides the key and no call-provided defaultValue is present.
   Return null when no reader value, call-provided defaultValue, or configured default is present.
-  Accept readers through constructor parameters.
-  Accept configured defaults through constructor parameters.
+  Accept @ConfigReader values through constructor parameters.
+  Accept @ConfigDefaults through constructor parameters.
   Allow stderr to be injected for tests.
-  Support adding new reader implementations without changing the get API.
+  Support adding new reader implementations without changing the @Config.get API.
 
 Depends on:
-  ConfigDefaults
-  ConfigReader
+  @ConfigDefaults
+  @ConfigReader
 
 Exposes:
-  Config.get(key, defaultValue = null)
-  ConfigDefaults
-  ConfigReader
+  @Config
+  @Config.get
+  @ConfigDefaults
+  @ConfigReader
+  @ConfigOptions
+  @ConfigWarningStream
 
 Accepts:
   config key
   default value
-  ConfigReader list
-  ConfigDefaults
+  @ConfigReader list
+  @ConfigDefaults
   stderr stream
 
 Returns:

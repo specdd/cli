@@ -3,22 +3,23 @@ Purpose:
   Provide a Node fetch adapter for HTTP requests.
 
 Structure:
-  fetch-client.ts: Fetch client implementation.
-  fetch-client.test.ts: Fetch client tests.
+  ./fetch-client.ts: Fetch client implementation.
+  ./fetch-client.test.ts: Fetch client tests.
 
 Owns:
-  fetch-client.ts
-  fetch-client.test.ts
+  ./fetch-client.ts
+  ./fetch-client.test.ts
 
 Must:
-  Expose get(url).
+  Expose @FetchClient.get.
   Use global fetch by default.
   Accept a fetch implementation through constructor parameters.
-  Return status, ok, json(), and bytes() for responses.
+  Return @FetchResponse with status, ok, @FetchResponse.json, and @FetchResponse.bytes.
 
 Depends on:
   Node.js fetch
 
 Exposes:
-  FetchClient.get(url)
-  FetchResponse
+  @FetchClient
+  @FetchClient.get
+  @FetchResponse

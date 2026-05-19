@@ -3,23 +3,23 @@ Purpose:
   Apply files from a SpecDD distribution zip into a target directory without overwriting existing project files except the project bootstrap file.
 
 Structure:
-  distribution-applier.ts: Distribution applier service implementation.
-  distribution-applier.test.ts: Distribution applier tests.
+  ./distribution-applier.ts: Distribution applier service implementation.
+  ./distribution-applier.test.ts: Distribution applier tests.
 
 Owns:
-  distribution-applier.ts
-  distribution-applier.test.ts
+  ./distribution-applier.ts
+  ./distribution-applier.test.ts
 
 References:
   ../../infrastructure/file-system.sdd
   ../logger/service.sdd
 
 Must:
-  Accept Logger and FileSystem through constructor parameters.
+  Accept @Logger and @FileSystem through constructor parameters.
   Accept a path to a distribution .zip file and a target directory path.
   Inspect file entries inside the zip archive.
-  Check target file existence through FileSystem before writing.
-  Explicitly create parent directories through FileSystem before writing files.
+  Check target file existence through @FileSystem before writing.
+  Explicitly create parent directories through @FileSystem before writing files.
   Write a zip file entry when the corresponding target file does not exist.
   Overwrite an existing target file only when the normalized relative path is .specdd/bootstrap.md.
   Leave every other existing target file unchanged.
@@ -34,26 +34,27 @@ Must not:
   Execute unzip or any other external command.
 
 Depends on:
-  CliError
-  Logger
-  FileSystem
+  @CliError
+  @Logger
+  @FileSystem
   jszip
   Node.js path handling
 
 Exposes:
-  DistributionApplier.applyDistribution(request)
+  @DistributionApplier
+  @DistributionApplier.applyDistribution
 
 Accepts:
-  DistributionApplyRequest
+  @DistributionApplyRequest
 
 Returns:
-  DistributionApplyResult
+  @DistributionApplyResult
 
 Raises:
-  DistributionZipNotFoundError
-  DistributionZipReadError
-  DistributionUnsafeEntryPathError
-  DistributionTargetWriteError
+  @DistributionZipNotFoundError
+  @DistributionZipReadError
+  @DistributionUnsafeEntryPathError
+  @DistributionTargetWriteError
 
 Handles:
   empty target directory

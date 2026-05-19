@@ -3,12 +3,12 @@ Purpose:
   Initialize SpecDD in the current directory or a target directory.
 
 Structure:
-  init.ts: Init command implementation.
-  init.test.ts: Init command tests.
+  ./init.ts: Init command implementation.
+  ./init.test.ts: Init command tests.
 
 Owns:
-  init.ts
-  init.test.ts
+  ./init.ts
+  ./init.test.ts
 
 References:
   ../container.sdd
@@ -16,7 +16,7 @@ References:
 
 Must:
   Expose a factory for the init command.
-  Receive a Container-compatible dependency object.
+  Receive an @InitCommandContainer dependency object.
   Set a concise command description for help output.
   Accept an optional target path argument.
   Describe the optional target path argument in help output.
@@ -28,8 +28,8 @@ Must:
   Include the project copyright notice in help output.
   Include SpecDD framework and CLI project help links in help output.
   Default the release version to latest.
-  Call DistributionInstaller.init with the resolved target directory and release version.
-  Support construction by the Container.
+  Call @DistributionInstaller.init with the resolved target directory and release version.
+  Support construction by @Container.
 
 Must not:
   Construct application services.
@@ -38,16 +38,17 @@ Must not:
 
 Depends on:
   commander
-  Container
-  DistributionInstaller
+  @Container
+  @DistributionInstaller
   Node.js path handling
 
 Exposes:
-  createInitCommand(container)
+  @createInitCommand
+  @resolveInitTargetPath
 
 Accepts:
   optional target path
   optional release version
 
 Returns:
-  commander Command
+  commander @Command

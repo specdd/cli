@@ -4,46 +4,46 @@ Purpose:
   Provide a command-line tool that supports SpecDD workflows.
 
 Structure:
-  main.ts: CLI entrypoint source emitted as main.js.
-  main.sdd: CLI entrypoint specification.
-  cli-error.ts: Shared base class for expected CLI-facing errors.
-  cli-error.sdd: Shared CLI error specification.
-  constants.ts: Shared constants for paths, URLs, asset names, and common CLI text.
-  constants.sdd: Shared constants specification.
-  container.ts: Application container for explicit service wiring.
-  container.sdd: Application container specification.
-  commands: CLI command handlers.
-  infrastructure: Runtime adapters for platform APIs.
-  infrastructure/*.sdd: Infrastructure adapter specification.
-  services: Application services, with each service in its own directory.
-  services/*/service.sdd: Service specification.
-  services/bootstrap-metadata: Shared bootstrap metadata service.
-  services/config: Shared configuration service.
-  services/logger: Shared CLI notice logger service.
-  services/specdd-version: Shared SpecDD version service.
-  tests: Jest test suites.
-  types: Local TypeScript declaration shims.
-  types/*.sdd: Local TypeScript declaration shim specifications.
+  ./main.ts: CLI entrypoint source emitted as main.js.
+  ./main.sdd: CLI entrypoint specification.
+  ./cli-error.ts: Shared base class for expected CLI-facing errors.
+  ./cli-error.sdd: Shared CLI error specification.
+  ./constants.ts: Shared constants for paths, URLs, asset names, and common CLI text.
+  ./constants.sdd: Shared constants specification.
+  ./container.ts: Application container for explicit service wiring.
+  ./container.sdd: Application container specification.
+  ./commands: CLI command handlers.
+  ./infrastructure: Runtime adapters for platform APIs.
+  ./infrastructure/*.sdd: Infrastructure adapter specification.
+  ./services: Application services, with each service in its own directory.
+  ./services/*/service.sdd: Service specification.
+  ./services/bootstrap-metadata: Shared bootstrap metadata service.
+  ./services/config: Shared configuration service.
+  ./services/logger: Shared CLI notice logger service.
+  ./services/specdd-version: Shared SpecDD version service.
+  ./**/*.test.ts: Jest test suites.
+  ./types: Local TypeScript declaration shims.
+  ./types/*.sdd: Local TypeScript declaration shim specifications.
 
 Owns:
-  .
+  ./
 
 Can modify:
-  **
+  ./**
 
 Can read:
   ../package.json
   ../.specdd/*
 
 Must:
-  Use TypeScript targeting the Node.js runtime declared by package.json.
+  Use TypeScript targeting the Node.js runtime declared by ../package.json.
   Expose a CLI named specdd.
-  Build shared service instances through the Container.
+  Build shared service instances through @Container.
   Keep command parsing separate from application services.
   Route command behavior through services.
-  Let commands access services through the Container.
+  Let commands access services through @Container.
   Support init, update, and check-update commands.
-  Keep shared paths, URLs, asset names, and common CLI text in constants.ts.
+  Keep shared paths, URLs, asset names, and common CLI text in ./constants.ts.
   Report filesystem changes clearly.
   Route service-originated CLI notices through the logger service.
   Fully test and cover each function, service, and command with tests.

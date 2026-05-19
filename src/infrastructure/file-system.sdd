@@ -3,32 +3,33 @@ Purpose:
   Provide Node filesystem adapter operations.
 
 Structure:
-  file-system.ts: File system adapter implementation.
-  file-system.test.ts: File system adapter tests.
+  ./file-system.ts: File system adapter implementation.
+  ./file-system.test.ts: File system adapter tests.
 
 Owns:
-  file-system.ts
-  file-system.test.ts
+  ./file-system.ts
+  ./file-system.test.ts
 
 Must:
-  Expose exists(path).
-  Expose isDirectory(path).
-  Expose createDirectory(path, options).
-  Expose readFile(path).
-  Expose writeFile(path, data).
+  Expose @FileSystem.exists.
+  Expose @FileSystem.isDirectory.
+  Expose @FileSystem.createDirectory.
+  Expose @FileSystem.readFile.
+  Expose @FileSystem.writeFile.
   Check whether the provided path exists.
   Check whether the provided path is a directory.
-  Create directories only when createDirectory is called.
+  Create directories only when @FileSystem.createDirectory is called.
   Read bytes from the provided path.
   Write bytes to the provided path.
-  Keep parent directory creation separate from writeFile.
+  Keep parent directory creation separate from @FileSystem.writeFile.
 
 Depends on:
   Node.js filesystem
 
 Exposes:
-  FileSystem.exists(path)
-  FileSystem.isDirectory(path)
-  FileSystem.createDirectory(path, options)
-  FileSystem.readFile(path)
-  FileSystem.writeFile(path, data)
+  @FileSystem
+  @FileSystem.exists
+  @FileSystem.isDirectory
+  @FileSystem.createDirectory
+  @FileSystem.readFile
+  @FileSystem.writeFile

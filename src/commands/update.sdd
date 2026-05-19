@@ -3,12 +3,12 @@ Purpose:
   Update SpecDD files in the current project.
 
 Structure:
-  update.ts: Update command implementation.
-  update.test.ts: Update command tests.
+  ./update.ts: Update command implementation.
+  ./update.test.ts: Update command tests.
 
 Owns:
-  update.ts
-  update.test.ts
+  ./update.ts
+  ./update.test.ts
 
 References:
   ../container.sdd
@@ -16,7 +16,7 @@ References:
 
 Must:
   Expose a factory for the update command.
-  Receive a Container-compatible dependency object.
+  Receive an @UpdateCommandContainer dependency object.
   Set a concise command description for help output.
   Use the current working directory as the update target.
   Accept an optional release version option.
@@ -24,8 +24,8 @@ Must:
   Include the project copyright notice in help output.
   Include SpecDD framework and CLI project help links in help output.
   Default the release version to latest.
-  Call DistributionInstaller.update with the current working directory and release version.
-  Support construction by the Container.
+  Call @DistributionInstaller.update with the current working directory and release version.
+  Support construction by @Container.
 
 Must not:
   Construct application services.
@@ -35,14 +35,14 @@ Must not:
 
 Depends on:
   commander
-  Container
-  DistributionInstaller
+  @Container
+  @DistributionInstaller
 
 Exposes:
-  createUpdateCommand(container)
+  @createUpdateCommand
 
 Accepts:
   optional release version
 
 Returns:
-  commander Command
+  commander @Command

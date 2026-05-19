@@ -3,21 +3,20 @@ Purpose:
   Provide shared values for SpecDD paths, release metadata, URLs, version parsing, and common CLI text.
 
 Structure:
-  constants.ts: Shared constants implementation.
+  ./constants.ts: Shared constants implementation.
 
 Owns:
-  constants.ts
+  ./constants.ts
 
 Can modify:
-  constants.ts
+  ./constants.ts
 
 Must:
-  Define SpecDD file and directory paths used across commands and services.
-  Define public SpecDD help and changelog URLs used in CLI output.
-  Define GitHub release API coordinates used for distribution lookup.
-  Define distribution asset names used for release downloads.
-  Define version parsing patterns shared by services.
-  Define common CLI footer text shared by command help output.
+  Define @SPECDD_DIRECTORY_PATH, @SPECDD_BOOTSTRAP_FILE_NAME, @SPECDD_LOCAL_BOOTSTRAP_FILE_NAME, @SPECDD_GITIGNORE_FILE_NAME, @SPECDD_BOOTSTRAP_PATH, @SPECDD_GITIGNORE_PATH, and @SPECDD_LOCAL_BOOTSTRAP_GITIGNORE_CONTENT.
+  Define @SPECDD_HOMEPAGE_URL, @SPECDD_CHANGELOG_URL, @SPECDD_CLI_HELP_URL, and @SPECDD_GITHUB_RELEASE_BASE_URL.
+  Define @SPECDD_DISTRIBUTION_ASSET_NAME and @SPECDD_SIGNATURE_ASSET_NAME.
+  Define @SPECDD_VERSION_PATTERN, @SPECDD_LEADING_V_VERSION_PATTERN, @SPECDD_VERSION_PART_SEPARATOR, and @SPECDD_FRONT_MATTER_DELIMITER.
+  Define @SPECDD_COPYRIGHT_NOTICE and @CLI_HELP_FOOTER.
   Keep values static and free of runtime side effects.
 
 Must not:
@@ -25,8 +24,22 @@ Must not:
   Perform filesystem or network operations.
 
 Exposes:
-  SpecDD path constants
-  SpecDD URL constants
-  distribution asset constants
-  version parsing constants
-  CLI text constants
+  @SPECDD_DIRECTORY_PATH
+  @SPECDD_BOOTSTRAP_FILE_NAME
+  @SPECDD_LOCAL_BOOTSTRAP_FILE_NAME
+  @SPECDD_GITIGNORE_FILE_NAME
+  @SPECDD_BOOTSTRAP_PATH
+  @SPECDD_GITIGNORE_PATH
+  @SPECDD_LOCAL_BOOTSTRAP_GITIGNORE_CONTENT
+  @SPECDD_HOMEPAGE_URL
+  @SPECDD_CHANGELOG_URL
+  @SPECDD_CLI_HELP_URL
+  @SPECDD_GITHUB_RELEASE_BASE_URL
+  @SPECDD_DISTRIBUTION_ASSET_NAME
+  @SPECDD_SIGNATURE_ASSET_NAME
+  @SPECDD_COPYRIGHT_NOTICE
+  @CLI_HELP_FOOTER
+  @SPECDD_VERSION_PATTERN
+  @SPECDD_LEADING_V_VERSION_PATTERN
+  @SPECDD_VERSION_PART_SEPARATOR
+  @SPECDD_FRONT_MATTER_DELIMITER

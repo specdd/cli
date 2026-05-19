@@ -3,12 +3,12 @@ Purpose:
   Check whether a newer SpecDD release is available for the current project.
 
 Structure:
-  check-update.ts: Check update command implementation.
-  check-update.test.ts: Check update command tests.
+  ./check-update.ts: Check update command implementation.
+  ./check-update.test.ts: Check update command tests.
 
 Owns:
-  check-update.ts
-  check-update.test.ts
+  ./check-update.ts
+  ./check-update.test.ts
 
 References:
   ../container.sdd
@@ -16,15 +16,15 @@ References:
 
 Must:
   Expose a factory for the check-update command.
-  Receive a Container-compatible dependency object.
+  Receive a @CheckUpdateCommandContainer dependency object.
   Set a concise command description for help output.
   Use the current working directory as the check target.
-  Call UpdateChecker.check with the current working directory.
+  Call @UpdateChecker.check with the current working directory.
   Exit with code 0 when no update is available.
   Exit with code 1 when an update is available.
   Include the project copyright notice in help output.
   Include SpecDD framework and CLI project help links in help output.
-  Support construction by the Container.
+  Support construction by @Container.
 
 Must not:
   Construct application services.
@@ -34,15 +34,15 @@ Must not:
 
 Depends on:
   commander
-  Container
-  UpdateChecker
+  @Container
+  @UpdateChecker
   process exit code handling
 
 Exposes:
-  createCheckUpdateCommand(container)
+  @createCheckUpdateCommand
 
 Accepts:
   no command arguments
 
 Returns:
-  commander Command
+  commander @Command
