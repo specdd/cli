@@ -10,7 +10,7 @@ HOMEBREW_TARBALL := /tmp/$(PACKAGE)-$(VERSION).tgz
 HOMEBREW_TARBALL_URL := https://registry.npmjs.org/$(PACKAGE)/-/$(PACKAGE)-$(VERSION).tgz
 GH ?= gh
 GITHUB_RELEASE_TAG := $(PACKAGE_VERSION)
-GITHUB_RELEASE_TITLE ?= $(PACKAGE) $(PACKAGE_VERSION)
+GITHUB_RELEASE_TITLE ?= $(PACKAGE_VERSION)
 DOCKER ?= docker
 DOCKER_CONFIG := $(CURDIR)/.docker
 DOCKER_IMAGE ?= ghcr.io/specdd/cli
@@ -57,6 +57,7 @@ release: release-preflight build
 	$(MAKE) docker-release
 	@$(call CONFIRM,Create GitHub release $(GITHUB_RELEASE_TAG)?)
 	$(MAKE) github-release
+	@echo "Release complete. Don't forget to commit and release the Homebrew repo."
 
 release-preflight:
 	@git rev-parse --is-inside-work-tree >/dev/null
