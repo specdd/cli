@@ -1,6 +1,6 @@
 Spec: Distribution Applier Service
 Purpose:
-  Apply files from a SpecDD distribution zip into a target directory without overwriting existing project files except the project bootstrap file.
+  Apply files from a SpecDD distribution zip into a target directory while preserving local project choices during update.
 
 Structure:
   ./distribution-applier.ts: Distribution applier service implementation.
@@ -16,20 +16,23 @@ References:
 
 Must:
   Accept @Logger and @FileSystem through constructor parameters.
-  Accept a path to a distribution .zip file and a target directory path.
+  Accept a path to a distribution .zip file, a target directory path, and an apply mode.
   Inspect file entries inside the zip archive.
   Check target file existence through @FileSystem before writing.
   Explicitly create parent directories through @FileSystem before writing files.
-  Write a zip file entry when the corresponding target file does not exist.
+  Write a missing zip file entry during init.
+  During update, write a missing zip file entry only when the normalized relative path is .specdd/bootstrap.md.
   Overwrite an existing target file only when the normalized relative path is .specdd/bootstrap.md.
   Leave every other existing target file unchanged.
+  During update, leave every missing non-bootstrap target file unchanged.
   Create parent directories needed for files that are written.
-  Return paths for files written, files overwritten, and existing files skipped.
+  Return paths for files written, files overwritten, and files skipped.
   Reject zip entries that resolve outside the target directory.
 
 Must not:
   Delete target files or directories.
   Overwrite existing files other than .specdd/bootstrap.md.
+  Recreate missing or deleted non-bootstrap files during update.
   Write files outside the target directory.
   Execute unzip or any other external command.
 
@@ -62,5 +65,6 @@ Handles:
   missing target file
   existing .specdd/bootstrap.md target file
   existing non-bootstrap target file
+  update with missing non-bootstrap target file
   nested zip file entry
   unsafe zip file entry path

@@ -37,8 +37,9 @@ Must:
   Check target state through @FileSystem before downloading.
   Download the requested distribution through @DistributionClient.
   Verify the downloaded zip and signature through @SignatureVerifier before applying files.
-  Apply the verified distribution through @DistributionApplier.
-  Ensure .specdd/.gitignore exists after init and update, including no-op updates.
+  Apply the verified distribution through @DistributionApplier using init mode for init.
+  Apply the verified distribution through @DistributionApplier using update mode for update.
+  Ensure .specdd/.gitignore exists after init.
   Preserve an existing .specdd/.gitignore.
   Invite the user to visit the updated bootstrap Changelog link after update applies files.
   Return install details after an install and no-op details when update is not needed.
@@ -48,6 +49,7 @@ Must not:
   Download, verify, or apply a distribution when the requested update is not needed.
   Depend on the distribution zip to contain .specdd/.gitignore.
   Overwrite an existing .specdd/.gitignore.
+  Recreate .specdd/.gitignore during update when it is missing.
   Print the Changelog invitation when update is not needed.
   Print the Changelog invitation for init.
   Treat update as an initializer for directories without .specdd.
@@ -85,6 +87,6 @@ Handles:
   init in already initialized target directory
   update in initialized target directory
   update needed and update not needed
-  missing or existing local .specdd/.gitignore
+  missing or existing local .specdd/.gitignore during init
   update in non-SpecDD target directory
   signature verification failure

@@ -15,7 +15,10 @@ import type {
 } from '../../infrastructure/file-system.js';
 import { Config } from '../config/config.js';
 import { BootstrapMetadata } from '../bootstrap-metadata/bootstrap-metadata.js';
-import type { DistributionApplyResult } from '../distribution-applier/distribution-applier.js';
+import type {
+  DistributionApplyMode,
+  DistributionApplyResult,
+} from '../distribution-applier/distribution-applier.js';
 import { Logger, type LoggerStream } from '../logger/logger.js';
 import { SpecDDVersion } from '../specdd-version/specdd-version.js';
 import {
@@ -241,7 +244,11 @@ class FakeSignatureVerifier implements SignatureVerifierDependency {
 }
 
 class FakeDistributionApplier implements DistributionApplierDependency {
-  public readonly requests: Array<{ zipPath: string; targetDirectoryPath: string }> = [];
+  public readonly requests: Array<{
+    mode: DistributionApplyMode;
+    zipPath: string;
+    targetDirectoryPath: string;
+  }> = [];
 
   private readonly events: string[];
 
@@ -255,7 +262,11 @@ class FakeDistributionApplier implements DistributionApplierDependency {
     this.afterApply = afterApply;
   }
 
-  public async applyDistribution(request: { zipPath: string; targetDirectoryPath: string }): Promise<DistributionApplyResult> {
+  public async applyDistribution(request: {
+    mode: DistributionApplyMode;
+    zipPath: string;
+    targetDirectoryPath: string;
+  }): Promise<DistributionApplyResult> {
     this.requests.push(request);
     this.events.push('apply');
 
@@ -388,6 +399,7 @@ describe('DistributionInstaller', () => {
     ]);
     expect(distributionApplier.requests).toEqual([
       {
+        mode: 'init',
         targetDirectoryPath: '/project',
         zipPath: '/tmp/specdd-1/specdd.zip',
       },
@@ -445,6 +457,7 @@ describe('DistributionInstaller', () => {
     ]);
     expect(distributionApplier.requests).toEqual([
       {
+        mode: 'init',
         targetDirectoryPath: '/project',
         zipPath: '/tmp/specdd-1/specdd.zip',
       },
@@ -646,16 +659,17 @@ describe('DistributionInstaller', () => {
     ]);
     expect(fileSystem.checkedExistencePaths).toEqual([
       '/project/.specdd/bootstrap.md',
-      '/project/.specdd/.gitignore',
     ]);
     expect(fileSystem.readFilePaths).toEqual([
       bootstrapPath,
       bootstrapPath,
     ]);
-    expect(fileSystem.writtenFiles).toEqual([
+    expect(fileSystem.writtenFiles).toEqual([]);
+    expect(distributionApplier.requests).toEqual([
       {
-        content: SPECDD_LOCAL_BOOTSTRAP_GITIGNORE_CONTENT,
-        path: gitignorePath,
+        mode: 'update',
+        targetDirectoryPath: '/project',
+        zipPath: '/tmp/specdd-1/specdd.zip',
       },
     ]);
     expect(distributionClient.requests).toEqual([
@@ -671,7 +685,6 @@ describe('DistributionInstaller', () => {
     expect(stdout.messages).toEqual([
       '[info] Updating SpecDD in /project.\n',
       '[info] Installed SpecDD 1.2.3 in /project.\n',
-      '[info] Added /project/.specdd/.gitignore to ignore bootstrap.local.md.\n',
       '[info] SpecDD was updated. Visit https://new.example/changelog to review the changes.\n',
     ]);
   });
@@ -716,12 +729,7 @@ describe('DistributionInstaller', () => {
     expect(fileSystem.readFilePaths).toEqual([
       bootstrapPath,
     ]);
-    expect(fileSystem.writtenFiles).toEqual([
-      {
-        content: SPECDD_LOCAL_BOOTSTRAP_GITIGNORE_CONTENT,
-        path: gitignorePath,
-      },
-    ]);
+    expect(fileSystem.writtenFiles).toEqual([]);
     expect(distributionClient.resolutionRequests).toEqual([]);
     expect(distributionClient.requests).toEqual([]);
     expect(signatureVerifier.requests).toEqual([]);
@@ -729,7 +737,6 @@ describe('DistributionInstaller', () => {
     expect(events).toEqual([]);
     expect(stdout.messages).toEqual([
       '[info] SpecDD update is not needed. Local version 1.2.3 already matches requested 1.2.3.\n',
-      '[info] Added /project/.specdd/.gitignore to ignore bootstrap.local.md.\n',
     ]);
   });
 
@@ -807,10 +814,12 @@ describe('DistributionInstaller', () => {
       bootstrapPath,
       bootstrapPath,
     ]);
-    expect(fileSystem.writtenFiles).toEqual([
+    expect(fileSystem.writtenFiles).toEqual([]);
+    expect(distributionApplier.requests).toEqual([
       {
-        content: SPECDD_LOCAL_BOOTSTRAP_GITIGNORE_CONTENT,
-        path: gitignorePath,
+        mode: 'update',
+        targetDirectoryPath: '/project',
+        zipPath: '/tmp/specdd-1/specdd.zip',
       },
     ]);
     expect(distributionClient.resolutionRequests).toEqual([
@@ -832,7 +841,6 @@ describe('DistributionInstaller', () => {
     expect(stdout.messages).toEqual([
       '[info] Updating SpecDD in /project.\n',
       '[info] Installed SpecDD 1.2.3 in /project.\n',
-      '[info] Added /project/.specdd/.gitignore to ignore bootstrap.local.md.\n',
       '[info] SpecDD was updated. Visit https://new.example/changelog to review the changes.\n',
     ]);
   });
@@ -877,12 +885,7 @@ describe('DistributionInstaller', () => {
     expect(fileSystem.readFilePaths).toEqual([
       bootstrapPath,
     ]);
-    expect(fileSystem.writtenFiles).toEqual([
-      {
-        content: SPECDD_LOCAL_BOOTSTRAP_GITIGNORE_CONTENT,
-        path: gitignorePath,
-      },
-    ]);
+    expect(fileSystem.writtenFiles).toEqual([]);
     expect(distributionClient.resolutionRequests).toEqual([
       {
         version: 'latest',
@@ -896,7 +899,6 @@ describe('DistributionInstaller', () => {
     ]);
     expect(stdout.messages).toEqual([
       '[info] SpecDD update is not needed. Local version 1.2.3 is at or newer than latest 1.2.3.\n',
-      '[info] Added /project/.specdd/.gitignore to ignore bootstrap.local.md.\n',
     ]);
   });
 

@@ -13,6 +13,7 @@ import type {
 import type { BootstrapMetadata } from '../bootstrap-metadata/bootstrap-metadata.js';
 import { BootstrapMetadataError } from '../bootstrap-metadata/bootstrap-metadata.js';
 import type {
+  DistributionApplyMode,
   DistributionApplyResult,
   DistributionApplier,
 } from '../distribution-applier/distribution-applier.js';
@@ -146,7 +147,7 @@ export class DistributionInstaller {
 
     this.logger.info(`Initializing SpecDD in ${request.targetDirectoryPath}.`);
 
-    const result = await this.install(request.version, request.targetDirectoryPath);
+    const result = await this.install(request.version, request.targetDirectoryPath, 'init');
 
     await this.ensureLocalBootstrapGitignore(request.targetDirectoryPath);
 
@@ -174,8 +175,6 @@ export class DistributionInstaller {
           `SpecDD update is not needed. Local version ${localVersion} is at or newer than latest ${latestRelease.version}.`,
         );
 
-        await this.ensureLocalBootstrapGitignore(request.currentWorkingDirectoryPath);
-
         return {
           applyResult: this.emptyApplyResult(),
           localVersion,
@@ -195,8 +194,6 @@ export class DistributionInstaller {
         `SpecDD update is not needed. Local version ${localVersion} already matches requested ${request.version}.`,
       );
 
-      await this.ensureLocalBootstrapGitignore(request.currentWorkingDirectoryPath);
-
       return {
         applyResult: this.emptyApplyResult(),
         localVersion,
@@ -211,7 +208,11 @@ export class DistributionInstaller {
     return this.installUpdate(request.version, request.currentWorkingDirectoryPath);
   }
 
-  private async install(version: string, targetDirectoryPath: string): Promise<DistributionInstallResult> {
+  private async install(
+    version: string,
+    targetDirectoryPath: string,
+    mode: DistributionApplyMode,
+  ): Promise<DistributionInstallResult> {
     const release = await this.distributionClient.downloadRelease({
       version,
     });
@@ -223,6 +224,7 @@ export class DistributionInstaller {
       zipPath: release.zipPath,
     });
     const applyResult = await this.distributionApplier.applyDistribution({
+      mode,
       targetDirectoryPath,
       zipPath: release.zipPath,
     });
@@ -238,9 +240,8 @@ export class DistributionInstaller {
   }
 
   private async installUpdate(version: string, targetDirectoryPath: string): Promise<DistributionInstallResult> {
-    const result = await this.install(version, targetDirectoryPath);
+    const result = await this.install(version, targetDirectoryPath, 'update');
 
-    await this.ensureLocalBootstrapGitignore(targetDirectoryPath);
     await this.logChangelogInvitation(targetDirectoryPath);
 
     return result;

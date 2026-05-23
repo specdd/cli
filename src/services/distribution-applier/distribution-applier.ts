@@ -16,6 +16,7 @@ const WINDOWS_DRIVE_PATH_PATTERN = /^[a-zA-Z]:/;
 export type DistributionApplyRequest = {
   zipPath: string;
   targetDirectoryPath: string;
+  mode: DistributionApplyMode;
 };
 
 export type DistributionApplyResult = {
@@ -23,6 +24,8 @@ export type DistributionApplyResult = {
   overwrittenPaths: string[];
   skippedPaths: string[];
 };
+
+export type DistributionApplyMode = 'init' | 'update';
 
 type DistributionZipEntry = {
   file: JSZip.JSZipObject;
@@ -85,7 +88,7 @@ export class DistributionApplier {
     };
 
     for (const entry of entries) {
-      await this.applyFileEntry(entry, result);
+      await this.applyFileEntry(entry, request.mode, result);
     }
 
     return result;
@@ -170,12 +173,23 @@ export class DistributionApplier {
     }
   }
 
-  private async applyFileEntry(entry: DistributionZipEntry, result: DistributionApplyResult): Promise<void> {
+  private async applyFileEntry(
+    entry: DistributionZipEntry,
+    mode: DistributionApplyMode,
+    result: DistributionApplyResult,
+  ): Promise<void> {
     const exists = await this.targetExists(entry.targetPath);
 
-    if (exists && SPECDD_BOOTSTRAP_PATH !== entry.normalizedRelativePath) {
+    if (exists && !this.isBootstrapEntry(entry)) {
       result.skippedPaths.push(entry.targetPath);
       this.logger.info(`Skipping existing file ${entry.targetPath}.`);
+
+      return;
+    }
+
+    if (!exists && !this.shouldWriteMissingEntry(entry, mode)) {
+      result.skippedPaths.push(entry.targetPath);
+      this.logger.info(`Skipping missing file ${entry.targetPath}.`);
 
       return;
     }
@@ -193,6 +207,14 @@ export class DistributionApplier {
 
     result.writtenPaths.push(entry.targetPath);
     this.logger.info(`Wrote ${entry.targetPath}.`);
+  }
+
+  private shouldWriteMissingEntry(entry: DistributionZipEntry, mode: DistributionApplyMode): boolean {
+    return 'init' === mode || this.isBootstrapEntry(entry);
+  }
+
+  private isBootstrapEntry(entry: DistributionZipEntry): boolean {
+    return SPECDD_BOOTSTRAP_PATH === entry.normalizedRelativePath;
   }
 
   private async targetExists(targetPath: string): Promise<boolean> {

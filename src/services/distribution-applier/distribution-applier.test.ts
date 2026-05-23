@@ -11,6 +11,7 @@ import { Config } from '../config/config.js';
 import { Logger, type LoggerStream } from '../logger/logger.js';
 import {
   DistributionApplier,
+  type DistributionApplyMode,
   DistributionTargetWriteError,
   DistributionUnsafeEntryPathError,
   DistributionZipNotFoundError,
@@ -206,10 +207,12 @@ const createFileSystem = async (
 const applyDistribution = async (
   fileSystem: MemoryFileSystem,
   logger: Logger,
+  mode: DistributionApplyMode = 'init',
 ): Promise<ReturnType<DistributionApplier['applyDistribution']>> => {
   const applier = new DistributionApplier(logger, fileSystem);
 
   return applier.applyDistribution({
+    mode,
     targetDirectoryPath,
     zipPath,
   });
@@ -293,6 +296,40 @@ describe('DistributionApplier', () => {
       '[info] Overwrote /project/.specdd/bootstrap.md.\n',
       '[info] Skipping existing file /project/app.sdd.\n',
       '[info] Wrote /project/new.md.\n',
+    ]);
+  });
+
+  it('writes a missing bootstrap but skips other missing files during update', async () => {
+    const fileSystem = await createFileSystem([
+      ['.specdd/bootstrap.md', 'bootstrap'],
+      ['app.sdd', 'app spec'],
+      ['docs/guide.md', 'guide'],
+    ]);
+    const { logger, stdout } = createLogger();
+
+    await expect(applyDistribution(fileSystem, logger, 'update')).resolves.toEqual({
+      overwrittenPaths: [],
+      skippedPaths: [
+        '/project/app.sdd',
+        '/project/docs/guide.md',
+      ],
+      writtenPaths: [
+        '/project/.specdd/bootstrap.md',
+      ],
+    });
+    expect(fileSystem.createDirectoryCalls).toEqual([
+      {
+        path: '/project/.specdd',
+        recursive: true,
+      },
+    ]);
+    expect(fileSystem.getText('/project/.specdd/bootstrap.md')).toBe('bootstrap');
+    expect(fileSystem.getText('/project/app.sdd')).toBe(null);
+    expect(fileSystem.getText('/project/docs/guide.md')).toBe(null);
+    expect(stdout.messages).toEqual([
+      '[info] Wrote /project/.specdd/bootstrap.md.\n',
+      '[info] Skipping missing file /project/app.sdd.\n',
+      '[info] Skipping missing file /project/docs/guide.md.\n',
     ]);
   });
 
