@@ -4,6 +4,7 @@ Purpose:
   Provide a command-line tool that supports SpecDD workflows.
 
 Structure:
+  ../README.md: User-facing CLI usage documentation.
   ./main.ts: CLI entrypoint source emitted as main.js.
   ./main.sdd: CLI entrypoint specification.
   ./cli-error.ts: Shared base class for expected CLI-facing errors.
@@ -31,8 +32,10 @@ Owns:
 
 Can modify:
   ./**
+  ../README.md
 
 Can read:
+  ../README.md
   ../package.json
   ../.specdd/*
 
@@ -45,6 +48,7 @@ Must:
   Let commands access services through @Container.
   Support init, update, check-update, and agentskills deploy commands.
   Keep shared paths, URLs, asset names, and common CLI text in ./constants.ts.
+  Keep ../README.md up to date when adding, changing, or removing CLI commands, options, defaults, or user-visible command safety behavior.
   Report filesystem changes clearly.
   Route service-originated CLI notices through the logger service.
   Fully test and cover each function, service, and command with tests.

@@ -99,6 +99,36 @@ Using Docker:
 docker run --rm -v "$PWD:/workspace" ghcr.io/specdd/cli:latest check-update
 ```
 
+## Deploy Agent Skills
+
+Deploy the latest SpecDD Agent Skills release into the current project:
+
+```bash
+specdd agentskills deploy
+```
+
+Deploy into another project directory:
+
+```bash
+specdd agentskills deploy path/to/project
+```
+
+Deploy into the current user's Agent Skills directory:
+
+```bash
+specdd agentskills deploy --user
+```
+
+Project installs write to `<project>/.agents/skills`. User installs write to `~/.agents/skills`.
+
+Install a specific Agent Skills release tag:
+
+```bash
+specdd agentskills deploy --version 1.2.3
+```
+
+`--user` cannot be combined with a target path.
+
 ## Versions
 
 By default, commands use the latest SpecDD release.
@@ -115,9 +145,11 @@ matches the local bootstrap version, `specdd update` does nothing.
 
 ## File Safety
 
-SpecDD CLI downloads official release files, verifies their signature, and then applies them to the target project.
+SpecDD CLI downloads official release files, verifies their signature, and then applies them to the target project or
+Agent Skills directory.
 
-Existing project files are preserved. The only existing file that may be overwritten is:
+For `specdd init` and `specdd update`, existing project files are preserved. The only existing file that may be
+overwritten is:
 
 ```text
 .specdd/bootstrap.md
@@ -125,6 +157,10 @@ Existing project files are preserved. The only existing file that may be overwri
 
 `specdd init` and `specdd update` also create `.specdd/.gitignore` when it is missing. That file ignores
 `bootstrap.local.md`.
+
+For `specdd agentskills deploy`, the CLI downloads `agentskills.zip` and `agentskills.zip.asc`, verifies the signature,
+and then installs only valid `specdd-*` skills that contain `SKILL.md`. Existing files under `specdd-*` skill
+directories may be overwritten. Skill directories that are not `specdd-*` prefixed are preserved.
 
 ## Logging
 
