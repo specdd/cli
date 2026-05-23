@@ -8,7 +8,7 @@
   "main": "./dist/main.js",
   "types": "./dist/main.d.ts",
   "bin": {
-    "specdd": "./dist/main.js"
+    "specdd": "dist/main.js"
   },
   "files": [
     "dist",
