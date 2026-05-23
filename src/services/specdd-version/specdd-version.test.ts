@@ -32,6 +32,13 @@ describe('SpecDDVersion', () => {
     expect(() => specDDVersion.validate('v1.2.3')).toThrow(SpecDDInvalidVersionError);
   });
 
+  it('raises an invalid version error without suggestion', () => {
+    const specDDVersion = new SpecDDVersion();
+
+    expect(() => specDDVersion.validate('next')).toThrow('Invalid SpecDD version: next');
+    expect(() => specDDVersion.validate('next')).toThrow(SpecDDInvalidVersionError);
+  });
+
   it('compares versions numerically', () => {
     const specDDVersion = new SpecDDVersion();
 

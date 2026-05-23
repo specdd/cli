@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { createAgentSkillsCommand } from './commands/agentskills.js';
 import { createCheckUpdateCommand } from './commands/check-update.js';
 import { createInitCommand } from './commands/init.js';
 import { createUpdateCommand } from './commands/update.js';
@@ -8,6 +9,7 @@ import { TempDirectory } from './infrastructure/temp-directory.js';
 import { Config } from './services/config/config.js';
 import { ConfigDefaults } from './services/config/config-defaults.js';
 import { EnvironmentReader } from './services/config/readers/environment-reader.js';
+import { AgentSkills } from './services/agentskills/agentskills.js';
 import { BootstrapMetadata } from './services/bootstrap-metadata/bootstrap-metadata.js';
 import { DistributionApplier } from './services/distribution-applier/distribution-applier.js';
 import { DistributionClient } from './services/distribution-client/distribution-client.js';
@@ -35,6 +37,10 @@ export class Container {
   public readonly distributionApplier: DistributionApplier;
 
   public readonly distributionInstaller: DistributionInstaller;
+
+  public readonly agentSkills: AgentSkills;
+
+  public readonly agentSkillsCommand: Command;
 
   public readonly checkUpdateCommand: Command;
 
@@ -94,6 +100,16 @@ export class Container {
       this.signatureVerifier,
       this.distributionApplier,
     );
+
+    this.agentSkills = new AgentSkills(
+      this.logger,
+      fetchClient,
+      fileSystem,
+      tempDirectory,
+      this.signatureVerifier,
+    );
+
+    this.agentSkillsCommand = createAgentSkillsCommand(this);
 
     this.checkUpdateCommand = createCheckUpdateCommand(this);
 

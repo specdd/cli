@@ -14,6 +14,7 @@ import { SpecDDVersion } from '../specdd-version/specdd-version.js';
 import {
   UpdateCheckError,
   UpdateChecker,
+  type UpdateCheckerBootstrapMetadataDependency,
   type UpdateCheckerDistributionClientDependency,
   UpdateCheckInvalidVersionError,
 } from './update-checker.js';
@@ -124,12 +125,13 @@ const createChecker = (
   fileSystem: UpdateCheckerFileSystemDependency,
   distributionClient: UpdateCheckerDistributionClientDependency,
   logger: Logger,
+  bootstrapMetadata: UpdateCheckerBootstrapMetadataDependency = new BootstrapMetadata(fileSystem),
 ): UpdateChecker => {
   return new UpdateChecker(
     logger,
     distributionClient,
     new SpecDDVersion(),
-    new BootstrapMetadata(fileSystem),
+    bootstrapMetadata,
   );
 };
 
@@ -348,6 +350,26 @@ Version: 1.2.3
     const { logger } = createLogger();
     const checker = createChecker(fileSystem, distributionClient, logger);
 
+    await expect(checker.check({
+      currentWorkingDirectoryPath: targetDirectoryPath,
+    })).rejects.toBeInstanceOf(UpdateCheckError);
+    expect(distributionClient.resolutionRequests).toEqual([]);
+  });
+
+  it('raises update check error when bootstrap metadata raises an unexpected error', async () => {
+    const fileSystem = new MemoryFileSystem();
+    const distributionClient = new FakeDistributionClient();
+    const { logger } = createLogger();
+    const checker = createChecker(fileSystem, distributionClient, logger, {
+      hasBootstrap: async () => {
+        throw new Error('unexpected metadata failure');
+      },
+      readVersion: async () => '1.2.3',
+    });
+
+    await expect(checker.check({
+      currentWorkingDirectoryPath: targetDirectoryPath,
+    })).rejects.toThrow('unexpected metadata failure');
     await expect(checker.check({
       currentWorkingDirectoryPath: targetDirectoryPath,
     })).rejects.toBeInstanceOf(UpdateCheckError);

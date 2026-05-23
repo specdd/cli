@@ -12,6 +12,7 @@ Owns:
 
 References:
   ./commands/check-update.sdd
+  ./commands/agentskills.sdd
   ./commands/init.sdd
   ./commands/update.sdd
   ./infrastructure/fetch-client.sdd
@@ -22,6 +23,7 @@ References:
   ./services/config/readers/environment-reader.sdd
   ./services/logger/service.sdd
   ./services/specdd-version/service.sdd
+  ./services/agentskills/service.sdd
   ./services/distribution-client/service.sdd
   ./services/update-checker/service.sdd
   ./services/signature-verifier/service.sdd
@@ -42,7 +44,9 @@ Must:
   Expose the @SignatureVerifier service.
   Expose the @DistributionApplier service.
   Expose the @DistributionInstaller service.
+  Expose the @AgentSkills service.
   Expose the check-update command instance.
+  Expose the agentskills command instance.
   Expose the init command instance.
   Expose the update command instance.
   Let commands receive the @Container instance instead of constructing services directly.
@@ -65,7 +69,9 @@ Depends on:
   @SignatureVerifier
   @DistributionApplier
   @DistributionInstaller
+  @AgentSkills
   @createCheckUpdateCommand
+  @createAgentSkillsCommand
   @createInitCommand
   @createUpdateCommand
 
@@ -73,6 +79,8 @@ Exposes:
   @Container
   @Container.specDDVersion
   @Container.bootstrapMetadata
+  @Container.agentSkills
   @Container.checkUpdateCommand
+  @Container.agentSkillsCommand
   @Container.initCommand
   @Container.updateCommand

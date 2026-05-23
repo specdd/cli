@@ -1,0 +1,94 @@
+Spec: Agent Skills Service
+Purpose:
+  Download, verify, and deploy SpecDD Agent Skills releases into Agent Skills directories.
+
+Structure:
+  ./agentskills.ts: Agent Skills deployment service implementation.
+  ./agentskills.test.ts: Agent Skills deployment service tests.
+
+Owns:
+  ./agentskills.ts
+  ./agentskills.test.ts
+
+References:
+  ../../infrastructure/fetch-client.sdd
+  ../../infrastructure/file-system.sdd
+  ../../infrastructure/temp-directory.sdd
+  ../logger/service.sdd
+  ../signature-verifier/service.sdd
+
+Must:
+  Accept @Logger, @FetchClient, @FileSystem, @TempDirectory, and @SignatureVerifier through constructor parameters.
+  Expose @AgentSkills.deploy for the agentskills deploy command flow.
+  Accept an explicit release version or latest.
+  Use GitHub repository specdd/agentskills for release lookup.
+  Treat explicit release versions as GitHub release tags.
+  Resolve latest to the current GitHub latest release before downloading assets.
+  Download the agentskills.zip asset to a unique temporary folder.
+  Download the agentskills.zip.asc asset to the same temporary folder.
+  Verify agentskills.zip against agentskills.zip.asc before applying files.
+  Apply no Agent Skills files when signature verification fails.
+  Install into .agents/skills under the target root directory.
+  Support release zip entries rooted at .agents/skills/specdd-*.
+  Support release zip entries rooted at specdd-*.
+  Install only skill directories whose basename starts with specdd- and that contain SKILL.md.
+  Ignore release entries for non-specdd-prefixed skills.
+  Create parent directories needed for files that are written.
+  Write missing files under specdd-* skill directories.
+  Overwrite existing files under specdd-* skill directories.
+  Preserve all target skill directories whose basename does not start with specdd-.
+  Return resolved release version, install directory path, signer fingerprint, installed skill names, written paths, overwritten paths, and ignored release paths.
+  Log release resolution, successful asset downloads, signature verification outcome, ignored release entries, written files, overwritten files, and deployment completion.
+
+Must not:
+  Write downloaded release files outside a temporary folder.
+  Apply files before signature verification succeeds.
+  Delete target files or directories.
+  Write files outside the .agents/skills install directory.
+  Write, overwrite, delete, or prune any target skill directory whose basename does not start with specdd-.
+  Execute unzip, gpg, or any other external command.
+
+Depends on:
+  @CliError
+  @Logger
+  @FetchClient
+  @FileSystem
+  @TempDirectory
+  @SignatureVerifier
+  GitHub releases
+  jszip
+  Node.js path handling
+
+Exposes:
+  @AgentSkills
+  @AgentSkills.deploy
+
+Accepts:
+  @AgentSkillsDeployRequest
+
+Returns:
+  @AgentSkillsDeployResult
+
+Raises:
+  @AgentSkillsReleaseNotFoundError
+  @AgentSkillsAssetNotFoundError
+  @AgentSkillsDownloadError
+  @AgentSkillsFilesystemError
+  @AgentSkillsZipReadError
+  @AgentSkillsUnsafeEntryPathError
+  @AgentSkillsNoInstallableSkillsError
+  @AgentSkillsTargetWriteError
+
+Handles:
+  latest release request
+  explicit release version request
+  missing agentskills.zip release asset
+  missing agentskills.zip.asc release asset
+  failed asset download
+  signature verification failure
+  empty or populated target Agent Skills directory
+  release entries rooted at .agents/skills
+  release entries rooted at top-level skill directories
+  non-specdd-prefixed release entries
+  specdd-prefixed release entries without SKILL.md
+  unsafe zip file entry path

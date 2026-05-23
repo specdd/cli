@@ -27,6 +27,7 @@ import {
   DistributionInstaller,
   DistributionTargetAlreadyInitializedError,
   DistributionTargetNotInitializedError,
+  type BootstrapMetadataDependency,
   type DistributionApplierDependency,
   type DistributionClientDependency,
   type SignatureVerifierDependency,
@@ -321,12 +322,13 @@ const createInstaller = (
   signatureVerifier: SignatureVerifierDependency,
   distributionApplier: DistributionApplierDependency,
   logger: Logger,
+  bootstrapMetadata: BootstrapMetadataDependency = new BootstrapMetadata(fileSystem),
 ): DistributionInstaller => {
   return new DistributionInstaller(
     logger,
     fileSystem,
     new SpecDDVersion(),
-    new BootstrapMetadata(fileSystem),
+    bootstrapMetadata,
     distributionClient,
     signatureVerifier,
     distributionApplier,
@@ -616,6 +618,31 @@ describe('DistributionInstaller', () => {
     await expect(installer.init({
       targetDirectoryPath,
       version: 'v1.2.3',
+    })).rejects.toBeInstanceOf(DistributionInvalidVersionError);
+    expect(fileSystem.checkedDirectoryPaths).toEqual([]);
+    expect(fileSystem.checkedExistencePaths).toEqual([]);
+    expect(events).toEqual([]);
+  });
+
+  it('rejects invalid requested versions without suggestion', async () => {
+    const events: string[] = [];
+    const fileSystem = new MemoryFileSystem();
+    const { logger } = createLogger();
+    const installer = createInstaller(
+      fileSystem,
+      new FakeDistributionClient(events),
+      new FakeSignatureVerifier(events),
+      new FakeDistributionApplier(events),
+      logger,
+    );
+
+    await expect(installer.init({
+      targetDirectoryPath,
+      version: 'next',
+    })).rejects.toThrow('Invalid SpecDD version: next');
+    await expect(installer.init({
+      targetDirectoryPath,
+      version: 'next',
     })).rejects.toBeInstanceOf(DistributionInvalidVersionError);
     expect(fileSystem.checkedDirectoryPaths).toEqual([]);
     expect(fileSystem.checkedExistencePaths).toEqual([]);
@@ -1181,6 +1208,78 @@ Version: 1.2.3
     })).rejects.toBeInstanceOf(DistributionInstallError);
     expect(distributionClient.resolutionRequests).toEqual([]);
     expect(distributionClient.requests).toEqual([]);
+    expect(events).toEqual([]);
+  });
+
+  it('raises install error when updated bootstrap Changelog cannot be read', async () => {
+    const events: string[] = [];
+    const fileSystem = new MemoryFileSystem({
+      directories: [
+        targetDirectoryPath,
+        '/project/.specdd',
+      ],
+      files: {
+        [bootstrapPath]: createBootstrapContent('1.2.2'),
+      },
+    });
+    const distributionApplier = new FakeDistributionApplier(events, null, () => {
+      fileSystem.setFile(bootstrapPath, `---
+Version: 1.2.3
+---
+`);
+    });
+    const { logger } = createLogger();
+    const installer = createInstaller(
+      fileSystem,
+      new FakeDistributionClient(events),
+      new FakeSignatureVerifier(events),
+      distributionApplier,
+      logger,
+    );
+
+    await expect(installer.update({
+      currentWorkingDirectoryPath: targetDirectoryPath,
+      version: '1.2.3',
+    })).rejects.toBeInstanceOf(DistributionInstallError);
+    expect(events).toEqual([
+      'download',
+      'verify',
+      'apply',
+    ]);
+  });
+
+  it('raises install error when bootstrap metadata raises an unexpected error', async () => {
+    const events: string[] = [];
+    const fileSystem = new MemoryFileSystem({
+      directories: [
+        targetDirectoryPath,
+        '/project/.specdd',
+      ],
+    });
+    const { logger } = createLogger();
+    const installer = createInstaller(
+      fileSystem,
+      new FakeDistributionClient(events),
+      new FakeSignatureVerifier(events),
+      new FakeDistributionApplier(events),
+      logger,
+      {
+        hasBootstrap: async () => true,
+        readChangelog: async () => SPECDD_CHANGELOG_URL,
+        readVersion: async () => {
+          throw new Error('unexpected metadata failure');
+        },
+      },
+    );
+
+    await expect(installer.update({
+      currentWorkingDirectoryPath: targetDirectoryPath,
+      version: 'latest',
+    })).rejects.toThrow('unexpected metadata failure');
+    await expect(installer.update({
+      currentWorkingDirectoryPath: targetDirectoryPath,
+      version: 'latest',
+    })).rejects.toBeInstanceOf(DistributionInstallError);
     expect(events).toEqual([]);
   });
 

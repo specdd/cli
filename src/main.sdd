@@ -13,6 +13,7 @@ Owns:
 References:
   ./container.sdd
   ./commands/check-update.sdd
+  ./commands/agentskills.sdd
   ./commands/init.sdd
   ./commands/update.sdd
 
@@ -23,6 +24,7 @@ Must:
   Attach the init command instance exposed by @Container.
   Attach the update command instance exposed by @Container.
   Attach the check-update command instance exposed by @Container.
+  Attach the agentskills command instance exposed by @Container.
   Parse provided argv values when @Main.run is called.
   Configure Commander exits so parsing can be tested without process exit side effects.
   Be testable without executing process-level side effects.

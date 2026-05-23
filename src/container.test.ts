@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { Config } from './services/config/config.js';
+import { AgentSkills } from './services/agentskills/agentskills.js';
 import { BootstrapMetadata } from './services/bootstrap-metadata/bootstrap-metadata.js';
 import { DistributionApplier } from './services/distribution-applier/distribution-applier.js';
 import { DistributionClient } from './services/distribution-client/distribution-client.js';
@@ -23,6 +24,9 @@ describe('Container', () => {
     expect(container.signatureVerifier).toBeInstanceOf(SignatureVerifier);
     expect(container.distributionApplier).toBeInstanceOf(DistributionApplier);
     expect(container.distributionInstaller).toBeInstanceOf(DistributionInstaller);
+    expect(container.agentSkills).toBeInstanceOf(AgentSkills);
+    expect(container.agentSkillsCommand).toBeInstanceOf(Command);
+    expect(container.agentSkillsCommand.name()).toBe('agentskills');
     expect(container.checkUpdateCommand).toBeInstanceOf(Command);
     expect(container.checkUpdateCommand.name()).toBe('check-update');
     expect(container.initCommand).toBeInstanceOf(Command);

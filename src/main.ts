@@ -10,7 +10,7 @@ import type { Logger } from './services/logger/logger.js';
 
 type MainErrorLogger = Pick<Logger, 'error'>;
 
-type MainContainer = Pick<Container, 'checkUpdateCommand' | 'initCommand' | 'updateCommand'> & {
+type MainContainer = Pick<Container, 'agentSkillsCommand' | 'checkUpdateCommand' | 'initCommand' | 'updateCommand'> & {
   readonly logger: MainErrorLogger;
 };
 
@@ -46,6 +46,7 @@ export class Main {
         'after',
         CLI_HELP_FOOTER,
       )
+      .addCommand(this.container.agentSkillsCommand)
       .addCommand(this.container.checkUpdateCommand)
       .addCommand(this.container.initCommand)
       .addCommand(this.container.updateCommand);

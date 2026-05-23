@@ -26,6 +26,7 @@ class ExpectedTestCliError extends CliError {
 
 const createContainer = (calls: string[] = [], logger: FakeLogger = new FakeLogger()) => {
   return {
+    agentSkillsCommand: createCommand('agentskills', calls),
     checkUpdateCommand: createCommand('check-update', calls),
     initCommand: createCommand('init', calls),
     logger,
@@ -82,6 +83,7 @@ describe('Main', () => {
     expect(help).toContain('Spec help: https://specdd.ai');
     expect(help).toContain('CLI help: https://github.com/specdd/cli');
     expect(command.commands.map((childCommand) => childCommand.name())).toEqual([
+      'agentskills',
       'check-update',
       'init',
       'update',
@@ -100,6 +102,21 @@ describe('Main', () => {
 
     expect(calls).toEqual([
       'init',
+    ]);
+  });
+
+  it('parses argv values and dispatches the agentskills command', async () => {
+    const calls: string[] = [];
+    const main = createMain(calls);
+
+    await main.run([
+      'node',
+      '/project/dist/main.js',
+      'agentskills',
+    ]);
+
+    expect(calls).toEqual([
+      'agentskills',
     ]);
   });
 
@@ -264,6 +281,7 @@ describe('Main', () => {
         'init',
       ],
       container: {
+        agentSkillsCommand: createCommand('agentskills', []),
         checkUpdateCommand: createCommand('check-update', []),
         initCommand: new Command('init').action(() => {
           throw new ExpectedTestCliError();
@@ -380,6 +398,7 @@ describe('Main', () => {
         'init',
       ],
       container: {
+        agentSkillsCommand: createCommand('agentskills', []),
         checkUpdateCommand: createCommand('check-update', []),
         initCommand: new Command('init').action(() => {
           throw failure;

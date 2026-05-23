@@ -16,6 +16,7 @@ Structure:
   ./infrastructure: Runtime adapters for platform APIs.
   ./infrastructure/*.sdd: Infrastructure adapter specification.
   ./services: Application services, with each service in its own directory.
+  ./services/agentskills: Agent Skills deployment service.
   ./services/*/service.sdd: Service specification.
   ./services/bootstrap-metadata: Shared bootstrap metadata service.
   ./services/config: Shared configuration service.
@@ -42,7 +43,7 @@ Must:
   Keep command parsing separate from application services.
   Route command behavior through services.
   Let commands access services through @Container.
-  Support init, update, and check-update commands.
+  Support init, update, check-update, and agentskills deploy commands.
   Keep shared paths, URLs, asset names, and common CLI text in ./constants.ts.
   Report filesystem changes clearly.
   Route service-originated CLI notices through the logger service.
@@ -64,3 +65,4 @@ Exposes:
   specdd init
   specdd update
   specdd check-update
+  specdd agentskills deploy

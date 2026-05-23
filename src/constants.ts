@@ -14,6 +14,13 @@ export const SPECDD_GITHUB_RELEASE_BASE_URL = 'https://api.github.com/repos/spec
 export const SPECDD_DISTRIBUTION_ASSET_NAME = 'specdd.zip';
 export const SPECDD_SIGNATURE_ASSET_NAME = 'specdd.zip.asc';
 
+export const AGENTSKILLS_GITHUB_RELEASE_BASE_URL = 'https://api.github.com/repos/specdd/agentskills/releases';
+export const AGENTSKILLS_RELEASE_ASSET_NAME = 'agentskills.zip';
+export const AGENTSKILLS_SIGNATURE_ASSET_NAME = 'agentskills.zip.asc';
+export const AGENTSKILLS_DIRECTORY_PATH = '.agents';
+export const AGENTSKILLS_SKILLS_DIRECTORY_PATH = `${AGENTSKILLS_DIRECTORY_PATH}/skills`;
+export const AGENTSKILLS_SKILL_PREFIX = 'specdd-';
+
 export const SPECDD_COPYRIGHT_NOTICE = 'Copyright (c) 2026 Matīss Treinis and SpecDD contributors';
 export const CLI_HELP_FOOTER = `\n${SPECDD_COPYRIGHT_NOTICE}\nSpec help: ${SPECDD_HOMEPAGE_URL}\nCLI help: ${SPECDD_CLI_HELP_URL}`;
 
