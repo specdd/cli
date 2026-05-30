@@ -102,7 +102,8 @@ Adapters should stay thin. Application decisions belong in services, not infrast
 ## Project Layout
 
 ```text
-src/app.sdd                         root project spec
+app.sdd                             repository root spec
+src/src.sdd                         source tree spec
 src/main.ts                         CLI entrypoint
 src/main.sdd                        entrypoint spec
 src/container.ts                    composition root
@@ -145,12 +146,41 @@ Build:
 yarn build
 ```
 
+## Changelog
+
+Maintain `CHANGELOG.md` in [Common Changelog](https://common-changelog.org/) format. Add or update the release entry
+before tagging a release; do not use an `Unreleased` section.
+
+Release entries use:
+
+```markdown
+## [VERSION] - YYYY-MM-DD
+```
+
+Use the package version without a leading `v`, keep entries latest-first, and group changes with Common Changelog
+categories such as `Changed`, `Added`, `Removed`, and `Fixed`.
+
+Use the matching changelog entry as the GitHub release body.
+
+## Manual Page
+
+The npm package includes a Unix manual page at `man/specdd.1`, exposed through the `man` field in `package.json`.
+Keep it up to date when CLI commands, options, defaults, exit behavior, important paths, or user-visible safety behavior
+change.
+
+The Makefile owns manpage maintenance. The manpage version is synced from `package.json`:
+
+```bash
+make man-sync
+make man-check
+```
+
+`make build` runs the manpage check, and `make release` syncs the manpage version before release preflight.
+
 Before considering a change complete, run:
 
 ```bash
-yarn typecheck
-yarn test:coverage
-yarn build
+make build
 ```
 
 The project expects full coverage for functions, services, and commands.

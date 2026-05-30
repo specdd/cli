@@ -1,10 +1,9 @@
-Spec: SpecDD CLI Application
+Spec: SpecDD CLI Source Tree
 Platform: TypeScript/Node.js/ESM
 Purpose:
-  Provide a command-line tool that supports SpecDD workflows.
+  Implement the SpecDD CLI application source code.
 
 Structure:
-  ../README.md: User-facing CLI usage documentation.
   ./main.ts: CLI entrypoint source emitted as main.js.
   ./main.sdd: CLI entrypoint specification.
   ./cli-error.ts: Shared base class for expected CLI-facing errors.
@@ -22,6 +21,10 @@ Structure:
   ./services/bootstrap-metadata: Shared bootstrap metadata service.
   ./services/config: Shared configuration service.
   ./services/logger: Shared CLI notice logger service.
+  ./services/spec-parser: Shared SpecDD spec parser service.
+  ./services/spec-linter: Shared SpecDD spec lint service.
+  ./services/spec-resolver: SpecDD spec relevance resolution service.
+  ./services/spec-tree: SpecDD spec tree discovery service.
   ./services/specdd-version: Shared SpecDD version service.
   ./**/*.test.ts: Jest test suites.
   ./types: Local TypeScript declaration shims.
@@ -32,30 +35,23 @@ Owns:
 
 Can modify:
   ./**
-  ../README.md
 
 Can read:
   ../README.md
+  ../DEVELOPMENT.md
   ../package.json
   ../.specdd/*
 
 Must:
-  Use TypeScript targeting the Node.js runtime declared by ../package.json.
-  Expose a CLI named specdd.
   Build shared service instances through @Container.
   Keep command parsing separate from application services.
   Route command behavior through services.
   Let commands access services through @Container.
-  Support init, update, check-update, and agentskills deploy commands.
   Keep shared paths, URLs, asset names, and common CLI text in ./constants.ts.
-  Keep ../README.md up to date when adding, changing, or removing CLI commands, options, defaults, or user-visible command safety behavior.
-  Report filesystem changes clearly.
   Route service-originated CLI notices through the logger service.
   Fully test and cover each function, service, and command with tests.
 
 Depends on:
-  Node.js
-  TypeScript
   commander
   fast-glob
   zod
@@ -65,8 +61,7 @@ Depends on:
   jest
 
 Exposes:
-  specdd CLI
-  specdd init
-  specdd update
-  specdd check-update
-  specdd agentskills deploy
+  src/main.ts
+  src/container.ts
+  src/commands
+  src/services

@@ -29,7 +29,10 @@ const createContainer = (calls: string[] = [], logger: FakeLogger = new FakeLogg
     agentSkillsCommand: createCommand('agentskills', calls),
     checkUpdateCommand: createCommand('check-update', calls),
     initCommand: createCommand('init', calls),
+    inspectCommand: createCommand('inspect', calls),
     logger,
+    lintCommand: createCommand('lint', calls),
+    resolveCommand: createCommand('resolve', calls),
     updateCommand: createCommand('update', calls),
   };
 };
@@ -86,6 +89,9 @@ describe('Main', () => {
       'agentskills',
       'check-update',
       'init',
+      'inspect',
+      'lint',
+      'resolve',
       'update',
     ]);
   });
@@ -147,6 +153,51 @@ describe('Main', () => {
 
     expect(calls).toEqual([
       'update',
+    ]);
+  });
+
+  it('parses argv values and dispatches the lint command', async () => {
+    const calls: string[] = [];
+    const main = createMain(calls);
+
+    await main.run([
+      'node',
+      '/project/dist/main.js',
+      'lint',
+    ]);
+
+    expect(calls).toEqual([
+      'lint',
+    ]);
+  });
+
+  it('parses argv values and dispatches the resolve command', async () => {
+    const calls: string[] = [];
+    const main = createMain(calls);
+
+    await main.run([
+      'node',
+      '/project/dist/main.js',
+      'resolve',
+    ]);
+
+    expect(calls).toEqual([
+      'resolve',
+    ]);
+  });
+
+  it('parses argv values and dispatches the inspect command', async () => {
+    const calls: string[] = [];
+    const main = createMain(calls);
+
+    await main.run([
+      'node',
+      '/project/dist/main.js',
+      'inspect',
+    ]);
+
+    expect(calls).toEqual([
+      'inspect',
     ]);
   });
 
@@ -286,7 +337,10 @@ describe('Main', () => {
         initCommand: new Command('init').action(() => {
           throw new ExpectedTestCliError();
         }),
+        inspectCommand: createCommand('inspect', []),
         logger,
+        lintCommand: createCommand('lint', []),
+        resolveCommand: createCommand('resolve', []),
         updateCommand: createCommand('update', []),
       },
       exit: (exitCode: number): void => {
@@ -403,7 +457,10 @@ describe('Main', () => {
         initCommand: new Command('init').action(() => {
           throw failure;
         }),
+        inspectCommand: createCommand('inspect', []),
         logger: new FakeLogger(),
+        lintCommand: createCommand('lint', []),
+        resolveCommand: createCommand('resolve', []),
         updateCommand: createCommand('update', []),
       },
     }))).rejects.toBe(failure);

@@ -14,6 +14,9 @@ References:
   ./commands/check-update.sdd
   ./commands/agentskills.sdd
   ./commands/init.sdd
+  ./commands/lint.sdd
+  ./commands/inspect.sdd
+  ./commands/resolve.sdd
   ./commands/update.sdd
   ./infrastructure/fetch-client.sdd
   ./infrastructure/file-system.sdd
@@ -22,6 +25,10 @@ References:
   ./services/config/service.sdd
   ./services/config/readers/environment-reader.sdd
   ./services/logger/service.sdd
+  ./services/spec-linter/service.sdd
+  ./services/spec-parser/service.sdd
+  ./services/spec-resolver/service.sdd
+  ./services/spec-tree/service.sdd
   ./services/specdd-version/service.sdd
   ./services/agentskills/service.sdd
   ./services/distribution-client/service.sdd
@@ -37,6 +44,10 @@ Must:
   Pass service dependencies through constructor parameters.
   Expose the @Config service.
   Expose the @Logger service.
+  Expose the @SpecLinter service.
+  Expose the @SpecParser service.
+  Expose the @SpecResolver service.
+  Expose the @SpecTree service.
   Expose the @SpecDDVersion service.
   Expose the @BootstrapMetadata service.
   Expose the @DistributionClient service.
@@ -48,6 +59,9 @@ Must:
   Expose the check-update command instance.
   Expose the agentskills command instance.
   Expose the init command instance.
+  Expose the lint command instance.
+  Expose the inspect command instance.
+  Expose the resolve command instance.
   Expose the update command instance.
   Let commands receive the @Container instance instead of constructing services directly.
 
@@ -62,6 +76,10 @@ Depends on:
   @TempDirectory
   @Config
   @Logger
+  @SpecLinter
+  @SpecParser
+  @SpecResolver
+  @SpecTree
   @SpecDDVersion
   @BootstrapMetadata
   @DistributionClient
@@ -73,14 +91,24 @@ Depends on:
   @createCheckUpdateCommand
   @createAgentSkillsCommand
   @createInitCommand
+  @createLintCommand
+  @createInspectCommand
+  @createResolveCommand
   @createUpdateCommand
 
 Exposes:
   @Container
   @Container.specDDVersion
+  @Container.specLinter
+  @Container.specParser
+  @Container.specResolver
+  @Container.specTree
   @Container.bootstrapMetadata
   @Container.agentSkills
   @Container.checkUpdateCommand
   @Container.agentSkillsCommand
   @Container.initCommand
+  @Container.lintCommand
+  @Container.inspectCommand
+  @Container.resolveCommand
   @Container.updateCommand

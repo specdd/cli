@@ -21,9 +21,9 @@ NODE_IMAGE ?= node:22-bookworm-slim
 
 export DOCKER_CONFIG
 
-.PHONY: build install sync-shrinkwrap audit typecheck test dist pack-check release release-preflight bump-homebrew github-release docker-config docker-build docker-smoke docker-builder docker-release docker-inspect
+.PHONY: build install sync-shrinkwrap audit typecheck test dist man-sync man-check pack-check release release-preflight bump-homebrew github-release docker-config docker-build docker-smoke docker-builder docker-release docker-inspect
 
-build: install sync-shrinkwrap audit typecheck test dist pack-check
+build: install sync-shrinkwrap audit typecheck test dist man-check pack-check
 
 install:
 	yarn install --frozen-lockfile
@@ -45,10 +45,16 @@ test:
 dist:
 	yarn build
 
+man-check:
+	node scripts/sync-man-version.mjs --check
+
+man-sync:
+	node scripts/sync-man-version.mjs
+
 pack-check:
 	$(NPM) pack --dry-run
 
-release: release-preflight build
+release: man-sync release-preflight build
 	@$(call CONFIRM,Publish $(PACKAGE)@$(VERSION) to npm?)
 	$(NPM) publish
 	@$(call CONFIRM,Update Homebrew formula for $(PACKAGE)@$(VERSION)?)

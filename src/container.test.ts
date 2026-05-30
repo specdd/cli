@@ -7,6 +7,10 @@ import { DistributionClient } from './services/distribution-client/distribution-
 import { DistributionInstaller } from './services/distribution-installer/distribution-installer.js';
 import { Logger } from './services/logger/logger.js';
 import { SignatureVerifier } from './services/signature-verifier/signature-verifier.js';
+import { SpecLinter } from './services/spec-linter/spec-linter.js';
+import { SpecParser } from './services/spec-parser/spec-parser.js';
+import { SpecResolver } from './services/spec-resolver/spec-resolver.js';
+import { SpecTree } from './services/spec-tree/spec-tree.js';
 import { SpecDDVersion } from './services/specdd-version/specdd-version.js';
 import { UpdateChecker } from './services/update-checker/update-checker.js';
 import { Container } from './container.js';
@@ -19,6 +23,10 @@ describe('Container', () => {
     expect(container.logger).toBeInstanceOf(Logger);
     expect(container.distributionClient).toBeInstanceOf(DistributionClient);
     expect(container.specDDVersion).toBeInstanceOf(SpecDDVersion);
+    expect(container.specParser).toBeInstanceOf(SpecParser);
+    expect(container.specLinter).toBeInstanceOf(SpecLinter);
+    expect(container.specResolver).toBeInstanceOf(SpecResolver);
+    expect(container.specTree).toBeInstanceOf(SpecTree);
     expect(container.bootstrapMetadata).toBeInstanceOf(BootstrapMetadata);
     expect(container.updateChecker).toBeInstanceOf(UpdateChecker);
     expect(container.signatureVerifier).toBeInstanceOf(SignatureVerifier);
@@ -31,6 +39,12 @@ describe('Container', () => {
     expect(container.checkUpdateCommand.name()).toBe('check-update');
     expect(container.initCommand).toBeInstanceOf(Command);
     expect(container.initCommand.name()).toBe('init');
+    expect(container.inspectCommand).toBeInstanceOf(Command);
+    expect(container.inspectCommand.name()).toBe('inspect');
+    expect(container.lintCommand).toBeInstanceOf(Command);
+    expect(container.lintCommand.name()).toBe('lint');
+    expect(container.resolveCommand).toBeInstanceOf(Command);
+    expect(container.resolveCommand.name()).toBe('resolve');
     expect(container.updateCommand).toBeInstanceOf(Command);
     expect(container.updateCommand.name()).toBe('update');
   });

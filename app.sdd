@@ -1,0 +1,77 @@
+Spec: SpecDD CLI Repository
+Platform: TypeScript/Node.js/ESM
+Purpose:
+  Provide the repository-level contract for the SpecDD CLI package, documentation, release automation, manual page, and source tree.
+
+Structure:
+  .specdd/bootstrap.project.md: Project-specific SpecDD bootstrap overrides.
+  CHANGELOG.md: Release notes in Common Changelog format.
+  README.md: User-facing CLI usage documentation.
+  DEVELOPMENT.md: Contributor development documentation.
+  package.json: npm package manifest, binary mapping, scripts, dependencies, and packaged file allowlist.
+  Makefile: Development, package, and release automation.
+  man/specdd.1: Installed Unix manual page for the specdd CLI.
+  scripts/sync-man-version.mjs: Release helper that syncs and checks the man page version.
+  src/: TypeScript CLI application source tree.
+  src/src.sdd: Source tree specification.
+
+Owns:
+  ./
+
+Can modify:
+  .specdd/bootstrap.project.md
+  CHANGELOG.md
+  README.md
+  DEVELOPMENT.md
+  package.json
+  Makefile
+  man/**
+  scripts/**
+  src/**
+
+Can read:
+  .specdd/*
+  CHANGELOG.md
+  README.md
+  DEVELOPMENT.md
+  package.json
+  Makefile
+  man/**
+  scripts/**
+  src/**
+
+Must:
+  Use TypeScript targeting the Node.js runtime declared by package.json.
+  Expose a CLI named specdd.
+  Support init, update, check-update, agentskills deploy, inspect, lint, and resolve commands.
+  Keep CHANGELOG.md in Common Changelog format.
+  Update CHANGELOG.md before tagging a release.
+  Include CHANGELOG.md in npm package metadata.
+  Keep README.md up to date when adding, changing, or removing CLI commands, options, defaults, or user-visible command safety behavior.
+  Keep man/specdd.1 up to date with packaged CLI commands, options, defaults, exit behavior, important paths, and user-visible safety behavior.
+  Include the manual page in npm package metadata and package verification.
+  Sync the manual page version from package.json before release preflight.
+  Run manual page sync and check through Makefile targets.
+  Report filesystem changes clearly.
+  Fully test and cover each function, service, and command with tests.
+
+Depends on:
+  Node.js
+  TypeScript
+  commander
+  fast-glob
+  zod
+  chalk
+  openpgp
+  jszip
+  jest
+
+Exposes:
+  specdd CLI
+  specdd init
+  specdd update
+  specdd check-update
+  specdd agentskills deploy
+  specdd inspect
+  specdd resolve
+  specdd lint

@@ -1,0 +1,91 @@
+Spec: Spec Tree Service
+Purpose:
+  Discover SpecDD spec files under a directory and build a section-aware tree for CLI rendering.
+
+Structure:
+  ./spec-tree.ts: Spec tree service implementation.
+  ./spec-tree.test.ts: Spec tree service tests.
+
+Owns:
+  ./spec-tree.ts
+  ./spec-tree.test.ts
+
+References:
+  ../../cli-error.sdd
+  ../../infrastructure/file-system.sdd
+  ../spec-parser/service.sdd
+
+Must:
+  Accept @FileSystem and @SpecParser through constructor parameters.
+  Expose @SpecTree.build for the inspect command flow.
+  Accept a target directory path.
+  Accept optional requested section names.
+  Default requested section names to Purpose.
+  Validate that the target path exists.
+  Validate that the target path is a directory.
+  Discover .sdd files recursively under the target directory.
+  Use relative paths from the target directory in returned tree nodes.
+  Sort discovered spec paths lexicographically by normalized relative path.
+  Parse each discovered spec file through @SpecParser.
+  Construct directory nodes from relative path segments.
+  Construct spec nodes for discovered .sdd files.
+  Treat a .sdd file whose basename exactly matches its containing directory basename as the directory-level spec.
+  Treat a .sdd file whose lowercase basename matches its containing directory lowercase basename as the directory-level spec when no exact match exists.
+  Reject ambiguous lowercase directory-level spec matches.
+  Prefer an exact directory-level spec match over lowercase matches.
+  Keep non-directory-level .sdd files in the containing directory node children.
+  Attach requested sections to each spec node by exact section name.
+  Preserve requested section order in each spec node.
+  Include missing requested section names for each spec node.
+  Return the resolved target directory path, requested section names, tree root, and flat ordered spec list.
+  Return an empty tree when the target directory contains no .sdd files.
+  Return data suitable for deterministic text and JSON rendering by a command layer.
+
+Must not:
+  Modify files.
+  Write to stdout or stderr.
+  Format human text output directly.
+  Format JSON output directly.
+  Resolve inherited spec chains.
+  Follow References sections.
+  Read non-.sdd source files during discovery.
+  Hide parser failures for malformed .sdd files.
+
+Depends on:
+  @CliError
+  @FileSystem
+  @SpecParser
+  fast-glob
+
+Exposes:
+  @SpecTree
+  @SpecTree.build
+  @SpecTreeRequest
+  @SpecTreeResult
+  @SpecTreeNode
+  @SpecTreeSpecNode
+  @SpecTreeDirectoryNode
+
+Accepts:
+  @SpecTreeRequest
+
+Returns:
+  @SpecTreeResult
+
+Raises:
+  @SpecTreeTargetNotFoundError
+  @SpecTreeTargetNotDirectoryError
+  @SpecTreeAmbiguousDirectorySpecError
+  @SpecTreeDiscoveryError
+  @SpecTreeParseError
+
+Handles:
+  missing target directory
+  target path that is not a directory
+  target directory without .sdd files
+  nested spec directories
+  exact directory-level spec match
+  lowercase directory-level spec match
+  ambiguous lowercase directory-level spec match
+  spec missing a requested section
+  malformed .sdd file

@@ -1,8 +1,10 @@
 # SpecDD project specific overrides
 
-The root of the project is in `src/` directory of the repository root.
+The root of the project is the repository root.
 
-The root spec file of the project is `src/app.sdd`.
+The root spec file of the project is `app.sdd`.
+
+The source tree spec file is `src/src.sdd`.
 
 ## Code style
 
@@ -20,4 +22,3 @@ The root spec file of the project is `src/app.sdd`.
 12. Prefer `!comparison` over `false === comparison`.
 13. Prefer early returns to reduce nesting and improve control flow clarity.
 14. Apply logging generously, using appropriate log levels for the context.
-

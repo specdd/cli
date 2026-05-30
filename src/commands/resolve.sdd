@@ -1,0 +1,84 @@
+Spec: Resolve Command
+Purpose:
+  Resolve and print relevant SpecDD specs for a target path.
+
+Structure:
+  ./resolve.ts: Resolve command implementation.
+  ./resolve.test.ts: Resolve command tests.
+
+Owns:
+  ./resolve.ts
+  ./resolve.test.ts
+
+References:
+  ../container.sdd
+  ../services/spec-resolver/service.sdd
+
+Must:
+  Expose a factory for the resolve command.
+  Receive a @ResolveCommandContainer dependency object.
+  Set a concise command description for help output.
+  Accept a required target path argument.
+  Accept --root to select the resolution root directory.
+  Resolve a missing --root value to the current working directory.
+  Resolve relative target and root paths against the current working directory.
+  Pass absolute target and root paths through unchanged.
+  Accept repeated --section options.
+  Accept comma-separated --sections option.
+  Default requested sections through @SpecResolver when no section options are provided.
+  Accept --depth with a non-negative integer or all.
+  Default --depth to 2.
+  Accept --format json, --format json-extended, and --format text.
+  Default output format to text.
+  Reject unsupported output formats.
+  Reject unsupported depth values.
+  Call @SpecResolver.resolve with the resolved root, target, requested sections, and depth.
+  Render deterministic text output for humans.
+  Render text output as scan-root absolute directory blocks.
+  Render text directory headings as paths rooted at the root directory, such as /, /commands/, or /services/config/.
+  Render text output in approximate relevance order with the target spec first.
+  Render each non-target resolved spec with a human-readable relevance reason list and requested sections.
+  Do not render the target reason in text output.
+  Trim leading and trailing whitespace from rendered section body lines in text and compact JSON output.
+  Drop leading and trailing empty body lines from text and compact JSON output.
+  Render compact JSON output for machine consumers without parser metadata such as line numbers, body entries, or raw lines.
+  Render compact JSON section bodies as arrays of trimmed body lines.
+  Render json-extended output as the full @SpecResolveResult.
+  Write rendered output to stdout.
+  Include the project copyright notice in help output.
+  Include SpecDD framework and CLI project help links in help output.
+  Support construction by @Container.
+
+Must not:
+  Construct application services.
+  Discover, parse, or validate spec files directly.
+  Implement spec relevance logic.
+  Implement the CLI entrypoint.
+
+Depends on:
+  commander
+  @Container
+  @SpecResolver
+  Node.js path handling
+  process stdout
+
+Exposes:
+  @createResolveCommand
+  @resolveResolveTargetPath
+  @resolveResolveRootPath
+  @resolveResolveSectionNames
+  @resolveResolveDepth
+  @resolveResolveOutputFormat
+  @renderResolve
+  @ResolveInvalidDepthError
+  @ResolveInvalidFormatError
+
+Accepts:
+  target path
+  optional root path
+  optional section names
+  optional depth
+  optional output format
+
+Returns:
+  commander @Command

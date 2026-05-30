@@ -1,0 +1,122 @@
+Spec: Spec Resolver Service
+Purpose:
+  Resolve relevant SpecDD specs for a target path by combining vertical context and bounded soft-link expansion.
+
+Structure:
+  ./spec-resolver.ts: Spec resolver service implementation.
+  ./spec-resolver.test.ts: Spec resolver service tests.
+
+Owns:
+  ./spec-resolver.ts
+  ./spec-resolver.test.ts
+
+References:
+  ../../cli-error.sdd
+  ../../infrastructure/file-system.sdd
+  ../spec-parser/service.sdd
+
+Must:
+  Accept @FileSystem and @SpecParser through constructor parameters.
+  Expose @SpecResolver.resolve for the resolve command flow.
+  Accept a root directory path, target path, optional section names, and soft-link depth.
+  Default requested sections to Purpose when no section names are provided.
+  Default soft-link depth to 2 when no depth is provided.
+  Validate that the root path exists.
+  Validate that the root path is a directory.
+  Validate that the target path exists.
+  Validate that the target path is inside the root directory.
+  Accept a target that is a directory.
+  Accept a target that is a .sdd spec file.
+  Reject non-directory, non-.sdd targets.
+  Include directory-level specs from the target path upward to the root.
+  Treat a .sdd file whose basename exactly matches its containing directory basename as the directory-level spec.
+  Treat a .sdd file whose lowercase basename matches its containing directory lowercase basename as the directory-level spec when no exact match exists.
+  Treat app.sdd as the root directory context spec when the root directory has no basename match.
+  Report ambiguous lowercase directory-level spec matches as errors.
+  Include the target spec file when the target is a .sdd file.
+  Use the target spec file or target directory-level spec as the soft-link expansion anchor when available.
+  Follow soft links from Owns, Can modify, Can read, References, Depends on, and Structure sections.
+  Do not follow soft links from Forbids, Exposes, Must, Must not, Purpose, Handles, Tasks, Scenario, or Example sections.
+  Follow only explicit local path references that begin with ./, ../, or /.
+  Resolve ./ and ../ paths relative to the declaring spec file directory.
+  Resolve / paths relative to the requested root directory.
+  Follow glob patterns exactly and include matched .sdd files.
+  Include all .sdd files under a linked directory when the link is a non-glob directory path.
+  Ignore linked paths that resolve outside the root directory.
+  Deduplicate specs by normalized path relative to the root directory.
+  Recursively expand soft links with cycle protection up to the requested depth.
+  Treat depth 0 as vertical context only.
+  Treat depth 1 as direct soft links from the target anchor only.
+  Treat depth 2 as target links plus immediate parent context spec links.
+  Treat numeric depth above 2 as including the next parent context level for each additional depth.
+  Treat depth all as recursive soft-link expansion until exhausted.
+  Return resolved specs with reasons that describe whether each spec was linked by target, parent, or a soft link.
+  Return a directory tree containing only resolved specs.
+  Return compact section lookups for requested sections.
+
+Must not:
+  Modify files.
+  Write to stdout or stderr.
+  Format human text output directly.
+  Format JSON output directly.
+  Read non-.sdd source files except through glob discovery results.
+  Resolve inherited spec chains beyond vertical directory-level context.
+  Follow remote URLs.
+  Follow unprefixed filenames, prose, dependency names, symbols, or ordinary words as paths.
+  Expand soft links from every parent spec by default.
+
+Depends on:
+  @CliError
+  @FileSystem
+  @SpecParser
+  fast-glob
+
+Exposes:
+  @SpecResolver
+  @SpecResolver.resolve
+  @SpecResolveRequest
+  @SpecResolveResult
+  @SpecResolveReason
+  @SpecResolveSpecNode
+  @SpecResolveDirectoryNode
+
+Accepts:
+  @SpecResolveRequest
+
+Returns:
+  @SpecResolveResult
+
+Raises:
+  @SpecResolveRootNotFoundError
+  @SpecResolveRootNotDirectoryError
+  @SpecResolveTargetNotFoundError
+  @SpecResolveTargetOutsideRootError
+  @SpecResolveUnsupportedTargetError
+  @SpecResolveAmbiguousDirectorySpecError
+  @SpecResolveDiscoveryError
+  @SpecResolveParseError
+
+Handles:
+  target directory
+  target .sdd file
+  target outside root
+  missing target
+  missing root
+  exact directory-level spec match
+  lowercase directory-level spec match
+  root app.sdd context match
+  ambiguous lowercase directory-level spec match
+  vertical parent context
+  direct soft links
+  recursive soft links
+  soft-link cycles
+  soft-link depth 0
+  soft-link depth 1
+  soft-link depth 2
+  soft-link depth all
+  local rooted paths
+  relative paths
+  glob paths
+  linked directories
+  unsupported unprefixed path text
+  ignored Forbids and Exposes references

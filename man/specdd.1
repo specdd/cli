@@ -1,0 +1,299 @@
+.TH SPECDD 1 "May 2026" "specdd 1.1.0" "SpecDD CLI Manual"
+.SH NAME
+specdd \- command-line tool for SpecDD workflows
+.SH SYNOPSIS
+.B specdd
+.I command
+.RI [ options ]
+.br
+.B specdd init
+.RI [ path ]
+.RB [ --version
+.IR version ]
+.br
+.B specdd update
+.RB [ --version
+.IR version ]
+.br
+.B specdd check-update
+.br
+.B specdd agentskills deploy
+.RI [ path ]
+.RB [ --user ]
+.RB [ --version
+.IR version ]
+.br
+.B specdd inspect
+.RI [ path ]
+.RB [ --section
+.IR name ]
+.RB [ --sections
+.IR names ]
+.RB [ --format
+.IR format ]
+.br
+.B specdd resolve
+.I target
+.RB [ --root
+.IR path ]
+.RB [ --section
+.IR name ]
+.RB [ --sections
+.IR names ]
+.RB [ --depth
+.IR depth ]
+.RB [ --format
+.IR format ]
+.br
+.B specdd lint
+.RI [ path ]
+.RB [ --format
+.IR format ]
+.SH DESCRIPTION
+.B specdd
+is a command-line tool for working with SpecDD framework-enabled
+projects. It initializes SpecDD project files, updates existing SpecDD
+installations, checks for framework updates, deploys SpecDD Agent Skills,
+and inspects, resolves, or lints local
+.B .sdd
+specification files.
+.PP
+SpecDD projects are driven by source-adjacent
+.B .sdd
+spec files.
+.SH COMMANDS
+.TP
+.B init [path]
+Initialize SpecDD in the current directory or in
+.IR path .
+If the target directory does not exist,
+.B init
+creates it. SpecDD is added only when
+.B .specdd/bootstrap.md
+is not already present.
+.TP
+.B update
+Update an existing SpecDD project. The current directory must contain
+.B .specdd/bootstrap.md .
+When using the default latest release,
+.B update
+compares the local bootstrap
+.B Version
+front matter with the latest release and does nothing when the local
+version is already current or newer.
+.TP
+.B check-update
+Print the local SpecDD version, if any, and the latest available release
+version.
+.TP
+.B agentskills deploy [path]
+Deploy SpecDD Agent Skills into a project directory. By default the
+current directory is used. Project installs write to
+.BR <project>/.agents/skills .
+Only valid
+.B specdd-*
+skill directories that contain
+.B SKILL.md
+are installed.
+.TP
+.B inspect [path]
+Discover
+.B .sdd
+files under a directory and print selected sections in a tree-shaped
+report. If
+.I path
+is omitted, the current directory is inspected.
+.TP
+.B resolve target
+Resolve specs relevant to
+.IR target ,
+where
+.I target
+is a directory or a
+.B .sdd
+file. Resolution always includes vertical directory context from the
+target up to the root, and then expands soft links from the target and
+nearby parent context specs.
+.TP
+.B lint [path]
+Lint
+.B .sdd
+files under a directory. If
+.I path
+is omitted, the current directory is linted. Text output prints only
+files with diagnostics.
+.SH COMMON OPTIONS
+.TP
+.B -h, --help
+Show command help.
+.TP
+.BI --version " version"
+Use a specific SpecDD release version for commands that download SpecDD
+release assets. Versions use dotted numeric values such as
+.B 1.2
+or
+.BR 1.2.3 ,
+without a leading
+.BR v .
+.SH AGENT SKILLS OPTIONS
+.TP
+.B --user
+Install Agent Skills into the current user's Agent Skills directory,
+.BR ~/.agents/skills .
+This option cannot be combined with a project target path.
+.TP
+.BI --version " version"
+Install a specific Agent Skills release tag.
+.SH INSPECT OPTIONS
+.TP
+.BI --section " name"
+Include a section by name. May be repeated.
+.TP
+.BI --sections " names"
+Include comma-separated section names, for example
+.BR Purpose,Must,Tasks .
+.TP
+.BI --format " format"
+Set output format. Supported values are
+.BR text ,
+.BR json ,
+and
+.BR json-extended .
+The default is
+.BR text .
+Compact JSON omits parser metadata. Extended JSON includes the full
+internal service result.
+.SH RESOLVE OPTIONS
+.TP
+.BI --root " path"
+Set the resolution root directory. Relative
+.B /
+paths in specs are resolved from this root. The default is the current
+directory.
+.TP
+.BI --section " name"
+Include a section by name. May be repeated.
+.TP
+.BI --sections " names"
+Include comma-separated section names.
+.TP
+.BI --depth " depth"
+Control how far
+.B resolve
+expands soft links. The default is
+.BR 2 .
+Use
+.B 0
+for vertical context only,
+.B 1
+for direct links from the target spec only,
+.B 2
+for target links plus immediate parent context links,
+.B 3
+to also expand the next parent context level, or
+.B all
+to recursively follow all reachable links with cycle protection.
+.TP
+.BI --format " format"
+Set output format. Supported values are
+.BR text ,
+.BR json ,
+and
+.BR json-extended .
+The default is
+.BR text .
+.SH LINT OPTIONS
+.TP
+.BI --format " format"
+Set output format. Supported values are
+.BR text
+and
+.BR json .
+The default is
+.BR text .
+.SH ENVIRONMENT
+.TP
+.B SPECDD_LOG_LEVEL
+Set CLI log verbosity. Supported values are
+.BR error ,
+.BR warning ,
+.BR warn ,
+.BR log ,
+.BR info ,
+and
+.BR debug .
+.SH EXIT STATUS
+.TP
+.B 0
+The command completed successfully. For
+.BR check-update ,
+exit status
+.B 0
+also means no update is needed.
+.TP
+.B 1
+The command completed with a user-visible non-success result, such as
+an available update from
+.B check-update
+or lint errors from
+.BR lint .
+.TP
+.B >1
+The command failed because of invalid input, missing prerequisites,
+download or verification failure, filesystem failure, or another
+unexpected error.
+.SH FILES
+.TP
+.B .specdd/bootstrap.md
+Project bootstrap file used to identify local SpecDD framework version
+and project rules.
+.TP
+.B .specdd/bootstrap.local.md
+Optional local operator overrides. This file is ignored by the
+generated
+.BR .specdd/.gitignore .
+.TP
+.B .agents/skills
+Project Agent Skills installation directory.
+.TP
+.B ~/.agents/skills
+User Agent Skills installation directory.
+.SH EXAMPLES
+.TP
+Initialize the current directory:
+.B specdd init
+.TP
+Update an existing project:
+.B specdd update
+.TP
+Check whether a newer framework release exists:
+.B specdd check-update
+.TP
+Deploy project Agent Skills:
+.B specdd agentskills deploy path/to/project
+.TP
+Deploy user Agent Skills:
+.B specdd agentskills deploy --user
+.TP
+Inspect selected sections:
+.B specdd inspect path/to/project --sections Purpose,Must,Tasks
+.TP
+Resolve relevant specs with default depth:
+.B specdd resolve path/to/project/src/feature --root path/to/project
+.TP
+Resolve only vertical context:
+.B specdd resolve --depth 0 path/to/project/src/feature
+.TP
+Resolve recursively:
+.B specdd resolve --depth all --root path/to/project path/to/project/src/feature
+.TP
+Lint specs as JSON:
+.B specdd lint path/to/project --format json
+.SH SEE ALSO
+SpecDD documentation:
+.UR https://specdd.ai
+.UE
+.br
+SpecDD CLI project:
+.UR https://github.com/specdd/cli
+.UE

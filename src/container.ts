@@ -2,6 +2,9 @@ import { Command } from 'commander';
 import { createAgentSkillsCommand } from './commands/agentskills.js';
 import { createCheckUpdateCommand } from './commands/check-update.js';
 import { createInitCommand } from './commands/init.js';
+import { createInspectCommand } from './commands/inspect.js';
+import { createLintCommand } from './commands/lint.js';
+import { createResolveCommand } from './commands/resolve.js';
 import { createUpdateCommand } from './commands/update.js';
 import { FetchClient } from './infrastructure/fetch-client.js';
 import { FileSystem } from './infrastructure/file-system.js';
@@ -16,6 +19,10 @@ import { DistributionClient } from './services/distribution-client/distribution-
 import { DistributionInstaller } from './services/distribution-installer/distribution-installer.js';
 import { Logger } from './services/logger/logger.js';
 import { SignatureVerifier } from './services/signature-verifier/signature-verifier.js';
+import { SpecLinter } from './services/spec-linter/spec-linter.js';
+import { SpecParser } from './services/spec-parser/spec-parser.js';
+import { SpecResolver } from './services/spec-resolver/spec-resolver.js';
+import { SpecTree } from './services/spec-tree/spec-tree.js';
 import { SpecDDVersion } from './services/specdd-version/specdd-version.js';
 import { UpdateChecker } from './services/update-checker/update-checker.js';
 
@@ -27,6 +34,14 @@ export class Container {
   public readonly distributionClient: DistributionClient;
 
   public readonly specDDVersion: SpecDDVersion;
+
+  public readonly specParser: SpecParser;
+
+  public readonly specLinter: SpecLinter;
+
+  public readonly specResolver: SpecResolver;
+
+  public readonly specTree: SpecTree;
 
   public readonly bootstrapMetadata: BootstrapMetadata;
 
@@ -46,6 +61,12 @@ export class Container {
 
   public readonly initCommand: Command;
 
+  public readonly lintCommand: Command;
+
+  public readonly resolveCommand: Command;
+
+  public readonly inspectCommand: Command;
+
   public readonly updateCommand: Command;
 
   public constructor() {
@@ -64,6 +85,23 @@ export class Container {
     this.logger = new Logger(this.config);
 
     this.specDDVersion = new SpecDDVersion();
+
+    this.specParser = new SpecParser(fileSystem);
+
+    this.specLinter = new SpecLinter(
+      fileSystem,
+      this.specParser,
+    );
+
+    this.specResolver = new SpecResolver(
+      fileSystem,
+      this.specParser,
+    );
+
+    this.specTree = new SpecTree(
+      fileSystem,
+      this.specParser,
+    );
 
     this.bootstrapMetadata = new BootstrapMetadata(fileSystem);
 
@@ -114,6 +152,12 @@ export class Container {
     this.checkUpdateCommand = createCheckUpdateCommand(this);
 
     this.initCommand = createInitCommand(this);
+
+    this.lintCommand = createLintCommand(this);
+
+    this.resolveCommand = createResolveCommand(this);
+
+    this.inspectCommand = createInspectCommand(this);
 
     this.updateCommand = createUpdateCommand(this);
   }

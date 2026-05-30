@@ -1,0 +1,104 @@
+Spec: Spec Parser Service
+Purpose:
+  Parse a SpecDD .sdd file into a structured object representation.
+
+Structure:
+  ./spec-parser.ts: Spec parser service implementation.
+  ./spec-parser.test.ts: Spec parser service tests.
+
+Owns:
+  ./spec-parser.ts
+  ./spec-parser.test.ts
+
+References:
+  ../../cli-error.sdd
+  ../../infrastructure/file-system.sdd
+
+Must:
+  Accept @FileSystem through the constructor.
+  Expose @SpecParser.parseFile for parsing a .sdd file from disk.
+  Expose @SpecParser.parseContent for parsing already-loaded .sdd source text.
+  Expose @SpecParser.validateFile for collecting syntax errors from a .sdd file on disk.
+  Expose @SpecParser.validateContent for collecting syntax errors from already-loaded .sdd source text.
+  Accept UTF-8 SpecDD source text.
+  Normalize CRLF and CR line endings to LF before parsing.
+  Parse only canonical SpecDD section labels.
+  Require Spec to be the first section in a parsed document.
+  Require section headers to start at column zero.
+  Enforce inline value rules for Spec, Platform, Scenario, and Example sections.
+  Reject inline values on sections that do not allow inline values.
+  Reject body entries under Spec and Platform.
+  Allow Scenario and Example sections to repeat.
+  Reject duplicate non-repeatable sections.
+  Reject duplicate Scenario inline values.
+  Ignore blank lines and whole-line comments as spec content.
+  Require non-comment indentation to use spaces in multiples of two.
+  Require body entries to use exactly two spaces of indentation.
+  Treat continuation lines as four-or-more-space lines that follow a body entry in the same section.
+  Normalize body entry text with continuation lines into semantic text values.
+  Parse Tasks section entries as task entries only.
+  Parse supported task states, optional numeric task IDs, and task text.
+  Parse scenario step body entries.
+  Parse generic key-value body entries.
+  Treat task-looking text outside Tasks as ordinary body text.
+  Preserve section order, section names, inline values, semantic body text, body entries, raw body entry lines, and line numbers.
+  Expose structured syntax error details with message text, source path, and line number when available.
+  Return the source path when one is provided.
+  Return the spec title from the Spec section inline value.
+  Return ordered sections and an exact-name section lookup of section arrays for callers.
+  Represent a missing section as absent from the section lookup.
+  Reject non-comment, nonblank content before the first section header.
+  Continue validation after syntax errors when collecting diagnostics for lint.
+  Recover validation state from invalid inline text on known section headers.
+  Return all visible syntax errors collected during validation.
+
+Must not:
+  Modify files.
+  Resolve inherited spec chains.
+  Follow References sections.
+  Resolve paths, globs, inline code spans, or symbol references.
+  Require Purpose, Must, Owns, Can modify, or any other optional section beyond Spec.
+  Parse Markdown bootstrap files or front matter.
+
+Depends on:
+  @CliError
+  @FileSystem
+
+Exposes:
+  @SpecParser
+  @SpecParser.parseFile
+  @SpecParser.parseContent
+  @SpecParser.validateFile
+  @SpecParser.validateContent
+  @SpecDocument
+  @SpecSection
+  @SpecBodyEntry
+
+Accepts:
+  @SpecParseFileRequest
+  @SpecParseContentRequest
+  @SpecValidateFileRequest
+  @SpecValidateContentRequest
+
+Returns:
+  @SpecDocument
+
+Raises:
+  @SpecParserReadError
+  @SpecParserSyntaxError
+  @SpecParserDuplicateSectionError
+
+Handles:
+  missing Purpose section
+  repeatable Scenario and Example sections
+  duplicate non-repeatable section
+  duplicate Scenario title
+  non-empty content before the first section header
+  comments before, between, and inside sections
+  body entry continuation normalization
+  task entries
+  scenario step entries
+  key-value entries
+  files with LF, CRLF, or CR line endings
+  multiple syntax errors in one file during validation
+  invalid inline text before a duplicate section during validation

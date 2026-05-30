@@ -129,6 +129,120 @@ specdd agentskills deploy --version 1.2.3
 
 `--user` cannot be combined with a target path.
 
+## Inspect Specs
+
+Inspect SpecDD specs in the current directory:
+
+```bash
+specdd inspect
+```
+
+Inspect another directory:
+
+```bash
+specdd inspect path/to/project
+```
+
+By default, inspect output includes each spec's `Purpose` section when present. Include other sections with repeated
+`--section` options or a comma-separated `--sections` option:
+
+```bash
+specdd inspect --section Purpose --section Must
+specdd inspect --sections Purpose,Must,Tasks
+```
+
+The default output is text. It groups specs by directory headings rooted at the scanned directory, such as `/`,
+`/commands/`, and `/services/config/`.
+
+```bash
+specdd inspect --format text
+```
+
+Use compact JSON for tools. It returns each section body as an array of lines. Use the extended JSON format for the full
+internal service result:
+
+```bash
+specdd inspect --format json
+specdd inspect --format json-extended
+```
+
+## Resolve Specs
+
+Resolve relevant specs for a target directory or `.sdd` file:
+
+```bash
+specdd resolve path/to/project/src/feature
+specdd resolve path/to/project/src/feature/feature.sdd
+```
+
+Use `--root` to set the project root used for upward resolution and `/`-prefixed spec paths:
+
+```bash
+specdd resolve --root path/to/project path/to/project/src/feature
+```
+
+`resolve` always includes vertical directory context from the target up to the root. It then expands soft links from the
+target spec and nearby parent context specs using `Owns`, `Can modify`, `Can read`, `References`, `Depends on`, and
+`Structure`. Only explicit local paths beginning with `./`, `../`, or `/` are followed.
+
+Depth controls how far `resolve` expands from the target and parent context:
+
+- `--depth 0`: vertical context only, with no soft-link expansion.
+- `--depth 1`: direct soft links from the target spec only.
+- `--depth 2`: target links plus the immediate parent context spec; this is the default and can pull siblings through
+  parent links such as `./**/*.sdd`.
+- `--depth 3`: also expands the next parent context level.
+- `--depth all`: recursively follows all reachable links with cycle protection.
+
+```bash
+specdd resolve --depth 0 path/to/project/src/feature
+specdd resolve --depth 1 path/to/project/src/feature
+specdd resolve --depth 2 path/to/project/src/feature
+specdd resolve --depth 3 path/to/project/src/feature
+specdd resolve --depth all --root path/to/project path/to/project/src/feature
+```
+
+Like `inspect`, `resolve` shows `Purpose` by default and accepts section filters and output formats:
+
+```bash
+specdd resolve path/to/project/src/feature --section Purpose --section Must
+specdd resolve path/to/project/src/feature --sections Purpose,Must,Tasks
+specdd resolve path/to/project/src/feature --format text
+specdd resolve path/to/project/src/feature --format json
+specdd resolve path/to/project/src/feature --format json-extended
+```
+
+## Lint Specs
+
+Lint SpecDD specs in the current directory:
+
+```bash
+specdd lint
+```
+
+Lint another directory:
+
+```bash
+specdd lint path/to/project
+```
+
+The default output is text. It prints only files with diagnostics, followed by indented diagnostic bullets:
+
+```text
+path/to/spec.sdd:
+  - Syntax error, line 3: Body entries must be indented by exactly 2 spaces
+```
+
+Use JSON output for tools:
+
+```bash
+specdd lint --format text
+specdd lint --format json
+```
+
+Lint reports all visible parse errors within each discovered spec in one run. It exits with status `1` when errors are
+present.
+
 ## Versions
 
 By default, commands use the latest SpecDD release.
@@ -142,25 +256,6 @@ specdd update --version 1.2.3
 
 Versions use dotted numeric values such as `1.2` or `1.2.3`, without a leading `v`. If the requested version already
 matches the local bootstrap version, `specdd update` does nothing.
-
-## File Safety
-
-SpecDD CLI downloads official release files, verifies their signature, and then applies them to the target project or
-Agent Skills directory.
-
-For `specdd init` and `specdd update`, existing project files are preserved. The only existing file that may be
-overwritten is:
-
-```text
-.specdd/bootstrap.md
-```
-
-`specdd init` and `specdd update` also create `.specdd/.gitignore` when it is missing. That file ignores
-`bootstrap.local.md`.
-
-For `specdd agentskills deploy`, the CLI downloads `agentskills.zip` and `agentskills.zip.asc`, verifies the signature,
-and then installs only valid `specdd-*` skills that contain `SKILL.md`. Existing files under `specdd-*` skill
-directories may be overwritten. Skill directories that are not `specdd-*` prefixed are preserved.
 
 ## Logging
 

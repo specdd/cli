@@ -1,6 +1,6 @@
 {
   "name": "specdd",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "SpecDD CLI is a tool for working with SpecDD framework-enabled projects",
   "license": "Apache-2.0",
   "type": "module",
@@ -10,8 +10,11 @@
   "bin": {
     "specdd": "dist/main.js"
   },
+  "man": "./man/specdd.1",
   "files": [
+    "CHANGELOG.md",
     "dist",
+    "man",
     "npm-shrinkwrap.json"
   ],
   "scripts": {
@@ -19,8 +22,7 @@
     "security:audit": "yarn audit --groups \"dependencies devDependencies\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
-    "test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
-    "prepack": "tsc -p tsconfig.build.json"
+    "test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage"
   },
   "engines": {
     "node": ">=22"
