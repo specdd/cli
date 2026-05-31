@@ -2,9 +2,9 @@
 
 The root of the project is the repository root.
 
-The root spec file of the project is `app.sdd`.
+The root spec file of the project is `/cli.sdd`.
 
-The source tree spec file is `src/src.sdd`.
+The source tree spec file is `/src/src.sdd`.
 
 ## Code style
 
