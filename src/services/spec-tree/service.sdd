@@ -1,6 +1,6 @@
 Spec: Spec Tree Service
 Purpose:
-  Discover SpecDD spec files under a directory and build a section-aware tree for CLI rendering.
+  Discover SpecDD spec files for a target path and build a section-aware tree for CLI rendering.
 
 Structure:
   ./spec-tree.ts: Spec tree service implementation.
@@ -14,31 +14,44 @@ References:
   ../../cli-error.sdd
   ../../infrastructure/file-system.sdd
   ../spec-parser/service.sdd
+  ../spec-target-context/service.sdd
 
 Must:
   Accept @FileSystem and @SpecParser through constructor parameters.
+  Accept @SpecTargetContext through constructor parameters.
   Expose @SpecTree.build for the inspect command flow.
-  Accept a target directory path.
+  Accept a target path that may be a directory, .sdd spec file, or ordinary file.
+  Accept an optional root directory path for upward target-context resolution.
   Accept optional requested section names.
   Default requested section names to Purpose.
   Validate that the target path exists.
-  Validate that the target path is a directory.
-  Discover .sdd files recursively under the target directory.
-  Use relative paths from the target directory in returned tree nodes.
+  Validate that the root path exists and is a directory when a root path is provided and the target is inside it.
+  Discover .sdd files recursively under a directory target.
+  Include the target .sdd file when the target path is a spec.
+  Include a same-basename .sdd file for an ordinary file target when one exists.
+  Treat same-basename ordinary file target specs as case-insensitive matches, preferring exact filename matches.
+  Continue upward directory context resolution when an ordinary file target has no same-basename spec.
+  Include directory-level specs from the target path upward to the root directory.
+  Treat the root directory basename match as the root directory context spec.
+  Use relative paths from the root directory in returned tree nodes.
   Sort discovered spec paths lexicographically by normalized relative path.
+  Use @SpecTargetContext for target classification, optional root resolution, same-basename target spec lookup, and directory-level context matching.
   Parse each discovered spec file through @SpecParser.
   Construct directory nodes from relative path segments.
   Construct spec nodes for discovered .sdd files.
-  Treat a .sdd file whose basename exactly matches its containing directory basename as the directory-level spec.
-  Treat a .sdd file whose lowercase basename matches its containing directory lowercase basename as the directory-level spec when no exact match exists.
-  Reject ambiguous lowercase directory-level spec matches.
-  Prefer an exact directory-level spec match over lowercase matches.
+  Treat a .sdd file inside a directory whose basename exactly matches the directory basename as a local directory-level spec.
+  Treat a .sdd file in a parent directory whose basename exactly matches a child directory basename as a parent-held directory-level spec.
+  Treat lowercase basename matches as directory-level specs when no exact match exists for that placement.
+  Treat parent-held and local directory-level specs for the same directory as cumulative context.
+  Reject ambiguous lowercase directory-level spec matches per placement.
+  Prefer an exact directory-level spec match over lowercase matches per placement.
+  Return parent-held directory-level specs before local directory-level specs for the same directory.
   Keep non-directory-level .sdd files in the containing directory node children.
   Attach requested sections to each spec node by exact section name.
   Preserve requested section order in each spec node.
   Include missing requested section names for each spec node.
   Return the resolved target directory path, requested section names, tree root, and flat ordered spec list.
-  Return an empty tree when the target directory contains no .sdd files.
+  Return an empty tree when no relevant .sdd files are found.
   Return data suitable for deterministic text and JSON rendering by a command layer.
 
 Must not:
@@ -48,13 +61,14 @@ Must not:
   Format JSON output directly.
   Resolve inherited spec chains.
   Follow References sections.
-  Read non-.sdd source files during discovery.
+  Read non-.sdd source file contents during discovery.
   Hide parser failures for malformed .sdd files.
 
 Depends on:
   @CliError
   @FileSystem
   @SpecParser
+  @SpecTargetContext
   fast-glob
 
 Exposes:
@@ -75,17 +89,24 @@ Returns:
 Raises:
   @SpecTreeTargetNotFoundError
   @SpecTreeTargetNotDirectoryError
+  @SpecTreeAmbiguousTargetSpecError
   @SpecTreeAmbiguousDirectorySpecError
   @SpecTreeDiscoveryError
   @SpecTreeParseError
 
 Handles:
-  missing target directory
-  target path that is not a directory
-  target directory without .sdd files
+  missing target path
+  target directory
+  target .sdd file
+  target ordinary file with same-basename spec
+  target ordinary file without same-basename spec
+  target directory without relevant .sdd files
   nested spec directories
-  exact directory-level spec match
-  lowercase directory-level spec match
+  exact local directory-level spec match
+  exact parent-held directory-level spec match
+  lowercase local directory-level spec match
+  lowercase parent-held directory-level spec match
+  cumulative parent-held and local directory-level specs
   ambiguous lowercase directory-level spec match
   spec missing a requested section
   malformed .sdd file

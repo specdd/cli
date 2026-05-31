@@ -4,6 +4,7 @@ Purpose:
   Provide the repository-level contract for the SpecDD CLI package, documentation, release automation, manual page, and source tree.
 
 Structure:
+  cli.sdd: Repository root specification.
   .specdd/bootstrap.project.md: Project-specific SpecDD bootstrap overrides.
   CHANGELOG.md: Release notes in Common Changelog format.
   README.md: User-facing CLI usage documentation.
@@ -19,6 +20,7 @@ Owns:
   ./
 
 Can modify:
+  cli.sdd
   .specdd/bootstrap.project.md
   CHANGELOG.md
   README.md
@@ -30,6 +32,7 @@ Can modify:
   src/**
 
 Can read:
+  cli.sdd
   .specdd/*
   CHANGELOG.md
   README.md

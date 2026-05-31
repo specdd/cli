@@ -25,6 +25,7 @@ Must:
   Pass absolute target and root paths through unchanged.
   Accept repeated --section options.
   Accept comma-separated --sections option.
+  Treat all in --section or --sections as every canonical SpecDD section.
   Default requested sections through @SpecResolver when no section options are provided.
   Accept --depth with a non-negative integer or all.
   Default --depth to 2.
@@ -37,8 +38,10 @@ Must:
   Render text output as scan-root absolute directory blocks.
   Render text directory headings as paths rooted at the root directory, such as /, /commands/, or /services/config/.
   Render text output in approximate relevance order with the target spec first.
+  Use the resolved target directory path for text relevance ordering when no target spec exists.
   Render each non-target resolved spec with a human-readable relevance reason list and requested sections.
   Do not render the target reason in text output.
+  Render duplicate spec file names in one directory block with their relative spec paths.
   Trim leading and trailing whitespace from rendered section body lines in text and compact JSON output.
   Drop leading and trailing empty body lines from text and compact JSON output.
   Render compact JSON output for machine consumers without parser metadata such as line numbers, body entries, or raw lines.

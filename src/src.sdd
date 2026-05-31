@@ -22,6 +22,8 @@ Structure:
   ./services/config: Shared configuration service.
   ./services/logger: Shared CLI notice logger service.
   ./services/spec-parser: Shared SpecDD spec parser service.
+  ./services/spec-directory-context: Shared SpecDD directory context matching service.
+  ./services/spec-target-context: Shared SpecDD target, root, and context discovery service.
   ./services/spec-linter: Shared SpecDD spec lint service.
   ./services/spec-resolver: SpecDD spec relevance resolution service.
   ./services/spec-tree: SpecDD spec tree discovery service.

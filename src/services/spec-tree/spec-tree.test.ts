@@ -11,6 +11,7 @@ import { SpecParser } from '../spec-parser/spec-parser.js';
 import {
   SpecTree,
   SpecTreeAmbiguousDirectorySpecError,
+  SpecTreeAmbiguousTargetSpecError,
   SpecTreeDiscoveryError,
   SpecTreeParseError,
   SpecTreeTargetNotDirectoryError,
@@ -91,6 +92,23 @@ class MemoryFileSystem implements DirectoryCheckerDependency, FileExistenceDepen
   }
 }
 
+class DirectoryContextLookupFailureFileSystem extends MemoryFileSystem {
+  private readonly failingPath: string;
+
+  public constructor(failingPath: string, options: MemoryFileSystemOptions = {}) {
+    super(options);
+    this.failingPath = failingPath;
+  }
+
+  public override async exists(path: string): Promise<boolean> {
+    if (path === this.failingPath) {
+      throw new Error('directory context lookup failed');
+    }
+
+    return super.exists(path);
+  }
+}
+
 const targetDirectoryPath = resolve('/workspace/project');
 
 const specContent = (title: string, purpose: string | null = null, extra = ''): string => {
@@ -136,7 +154,7 @@ const createSpecTree = (
 describe('SpecTree', () => {
   it('builds a deterministic tree with default Purpose sections and directory-level specs', async () => {
     const files = {
-      [join(targetDirectoryPath, 'app.sdd')]: specContent('App'),
+      [join(targetDirectoryPath, 'project.sdd')]: specContent('App'),
       [join(targetDirectoryPath, 'billing', 'billing.sdd')]: specContent('Billing', 'Own billing.'),
       [join(targetDirectoryPath, 'billing', 'invoice.sdd')]: specContent('Invoice', 'Own invoices.'),
       [join(targetDirectoryPath, 'catalog', 'Catalog.sdd')]: specContent('Catalog', 'Own catalog.'),
@@ -146,7 +164,7 @@ describe('SpecTree', () => {
       files,
       findSpecPaths: async () => [
         'billing/invoice.sdd',
-        './app.sdd',
+        './project.sdd',
         'catalog\\item.sdd',
         'billing/billing.sdd',
         'catalog/Catalog.sdd',
@@ -166,10 +184,6 @@ describe('SpecTree', () => {
       spec.directoryLevel,
     ])).toEqual([
       [
-        'app.sdd',
-        false,
-      ],
-      [
         'billing/billing.sdd',
         true,
       ],
@@ -185,28 +199,25 @@ describe('SpecTree', () => {
         'catalog/item.sdd',
         false,
       ],
+      [
+        'project.sdd',
+        true,
+      ],
     ]);
     expect(result.root).toMatchObject({
       name: 'project',
       path: '.',
-      spec: null,
+      spec: {
+        directoryLevel: true,
+        path: 'project.sdd',
+      },
       type: 'directory',
     });
     expect(result.root.children.map((child) => child.path)).toEqual([
-      'app.sdd',
       'billing',
       'catalog',
     ]);
     expect(result.root.children[0]).toMatchObject({
-      directoryLevel: false,
-      path: 'app.sdd',
-      sections: {
-        Purpose: [],
-      },
-      title: 'App',
-      type: 'spec',
-    });
-    expect(result.root.children[1]).toMatchObject({
       path: 'billing',
       spec: {
         directoryLevel: true,
@@ -224,16 +235,16 @@ describe('SpecTree', () => {
     });
     expect(result.root.children[1]?.type).toBe('directory');
 
-    if ('directory' === result.root.children[1]?.type) {
-      expect(result.root.children[1].children).toHaveLength(1);
-      expect(result.root.children[1].children[0]).toMatchObject({
+    if ('directory' === result.root.children[0]?.type) {
+      expect(result.root.children[0].children).toHaveLength(1);
+      expect(result.root.children[0].children[0]).toMatchObject({
         directoryLevel: false,
         path: 'billing/invoice.sdd',
         title: 'Invoice',
       });
     }
 
-    expect(result.root.children[2]).toMatchObject({
+    expect(result.root.children[1]).toMatchObject({
       path: 'catalog',
       spec: {
         directoryLevel: true,
@@ -244,16 +255,89 @@ describe('SpecTree', () => {
     });
     expect(fileSystem.checkedExistencePaths).toEqual([
       targetDirectoryPath,
+      join(targetDirectoryPath, 'billing', 'billing'),
+      join(targetDirectoryPath, 'billing', 'invoice'),
+      join(targetDirectoryPath, 'catalog', 'Catalog'),
+      join(targetDirectoryPath, 'catalog', 'item'),
+      join(targetDirectoryPath, 'project'),
     ]);
     expect(fileSystem.checkedDirectoryPaths).toEqual([
       targetDirectoryPath,
     ]);
     expect(fileSystem.readFilePaths).toEqual([
-      join(targetDirectoryPath, 'app.sdd'),
       join(targetDirectoryPath, 'billing', 'billing.sdd'),
       join(targetDirectoryPath, 'billing', 'invoice.sdd'),
       join(targetDirectoryPath, 'catalog', 'Catalog.sdd'),
       join(targetDirectoryPath, 'catalog', 'item.sdd'),
+      join(targetDirectoryPath, 'project.sdd'),
+    ]);
+  });
+
+  it('attaches parent-held and local directory specs as cumulative directory context', async () => {
+    const files = {
+      [join(targetDirectoryPath, 'src', 'foo', 'bar.sdd')]: specContent('Broad Bar', 'Govern bar broadly.'),
+      [join(targetDirectoryPath, 'src', 'foo', 'bar', 'bar.sdd')]: specContent('Local Bar', 'Govern bar locally.'),
+      [join(targetDirectoryPath, 'src', 'foo', 'bar', 'helper.sdd')]: specContent('Helper', 'Describe helper.'),
+    };
+    const { specTree } = createSpecTree({
+      directories: [
+        targetDirectoryPath,
+        join(targetDirectoryPath, 'src'),
+        join(targetDirectoryPath, 'src', 'foo'),
+        join(targetDirectoryPath, 'src', 'foo', 'bar'),
+      ],
+      files,
+      findSpecPaths: async () => [
+        'src/foo/bar/helper.sdd',
+        'src/foo/bar/bar.sdd',
+        'src/foo/bar.sdd',
+      ],
+    });
+
+    const result = await specTree.build({
+      targetDirectoryPath,
+    });
+    const barDirectory = result.root.children
+      .filter((child) => 'directory' === child.type)
+      .flatMap((child) => child.children)
+      .filter((child) => 'directory' === child.type)
+      .flatMap((child) => child.children)
+      .find((child) => 'directory' === child.type && 'src/foo/bar' === child.path);
+
+    expect(barDirectory).toMatchObject({
+      path: 'src/foo/bar',
+      spec: {
+        path: 'src/foo/bar.sdd',
+      },
+      specs: [
+        {
+          directoryLevel: true,
+          path: 'src/foo/bar.sdd',
+          title: 'Broad Bar',
+        },
+        {
+          directoryLevel: true,
+          path: 'src/foo/bar/bar.sdd',
+          title: 'Local Bar',
+        },
+      ],
+    });
+    expect(result.specs.map((spec) => [
+      spec.path,
+      spec.directoryLevel,
+    ])).toEqual([
+      [
+        'src/foo/bar.sdd',
+        true,
+      ],
+      [
+        'src/foo/bar/bar.sdd',
+        true,
+      ],
+      [
+        'src/foo/bar/helper.sdd',
+        false,
+      ],
     ]);
   });
 
@@ -336,13 +420,31 @@ Tasks:
         name: 'project',
         path: '.',
         spec: null,
+        specs: [],
         type: 'directory',
       },
       sectionNames: [
         'Purpose',
       ],
       specs: [],
+      rootDirectoryPath: targetDirectoryPath,
       targetDirectoryPath,
+      targetPath: targetDirectoryPath,
+    });
+  });
+
+  it('defaults to the current directory when no target path is requested', async () => {
+    const currentDirectoryPath = resolve('.');
+    const { specTree } = createSpecTree({
+      directories: [
+        currentDirectoryPath,
+      ],
+    });
+
+    await expect(specTree.build({})).resolves.toMatchObject({
+      rootDirectoryPath: currentDirectoryPath,
+      targetDirectoryPath: currentDirectoryPath,
+      targetPath: currentDirectoryPath,
     });
   });
 
@@ -379,22 +481,223 @@ Tasks:
     }
   });
 
-  it('raises when the target path is missing or is not a directory', async () => {
+  it('raises when the target path is missing', async () => {
     await expect(createSpecTree({
       directories: [],
       existingPaths: [],
     }).specTree.build({
       targetDirectoryPath,
     })).rejects.toBeInstanceOf(SpecTreeTargetNotFoundError);
+  });
+
+  it('accepts ordinary file targets without same-basename specs and resolves upward context', async () => {
+    const targetFilePath = join(targetDirectoryPath, 'src', 'feature.ts');
+    const files = {
+      [join(targetDirectoryPath, 'project.sdd')]: specContent('App', 'Own app.'),
+      [join(targetDirectoryPath, 'src', 'src.sdd')]: specContent('Source', 'Own source.'),
+      [targetFilePath]: 'export {};\n',
+    };
+    const { specTree } = createSpecTree({
+      directories: [
+        targetDirectoryPath,
+        join(targetDirectoryPath, 'src'),
+      ],
+      files,
+      findSpecPaths: async () => [
+        'project.sdd',
+        'src/src.sdd',
+      ],
+    });
+
+    const result = await specTree.build({
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: targetFilePath,
+    });
+
+    expect(result.specs.map((spec) => spec.path)).toEqual([
+      'project.sdd',
+      'src/src.sdd',
+    ]);
+    expect(result.targetDirectoryPath).toBe(join(targetDirectoryPath, 'src'));
+    expect(result.targetPath).toBe(targetFilePath);
+  });
+
+  it('accepts ordinary file targets with same-basename specs', async () => {
+    const targetFilePath = join(targetDirectoryPath, 'src', 'feature.ts');
+    const files = {
+      [join(targetDirectoryPath, 'project.sdd')]: specContent('App', 'Own app.'),
+      [join(targetDirectoryPath, 'src', 'src.sdd')]: specContent('Source', 'Own source.'),
+      [join(targetDirectoryPath, 'src', 'feature.sdd')]: specContent('Feature', 'Own feature.'),
+      [targetFilePath]: 'export {};\n',
+    };
+    const { specTree } = createSpecTree({
+      directories: [
+        targetDirectoryPath,
+        join(targetDirectoryPath, 'src'),
+      ],
+      files,
+      findSpecPaths: async () => [
+        'project.sdd',
+        'src/feature.sdd',
+        'src/src.sdd',
+      ],
+    });
+
+    const result = await specTree.build({
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: targetFilePath,
+    });
+
+    expect(result.specs.map((spec) => spec.path)).toEqual([
+      'project.sdd',
+      'src/feature.sdd',
+      'src/src.sdd',
+    ]);
+  });
+
+  it('accepts .sdd targets and resolves upward context', async () => {
+    const targetSpecPath = join(targetDirectoryPath, 'src', 'feature.sdd');
+    const files = {
+      [join(targetDirectoryPath, 'project.sdd')]: specContent('App', 'Own app.'),
+      [join(targetDirectoryPath, 'src', 'src.sdd')]: specContent('Source', 'Own source.'),
+      [targetSpecPath]: specContent('Feature', 'Own feature.'),
+    };
+    const { specTree } = createSpecTree({
+      directories: [
+        targetDirectoryPath,
+        join(targetDirectoryPath, 'src'),
+      ],
+      files,
+      findSpecPaths: async () => [
+        'project.sdd',
+        'src/feature.sdd',
+        'src/src.sdd',
+      ],
+    });
+
+    const result = await specTree.build({
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: targetSpecPath,
+    });
+
+    expect(result.specs.map((spec) => spec.path)).toEqual([
+      'project.sdd',
+      'src/feature.sdd',
+      'src/src.sdd',
+    ]);
+  });
+
+  it('falls back to the target root when the requested root is outside the target', async () => {
+    const files = {
+      [join(targetDirectoryPath, 'project.sdd')]: specContent('App'),
+    };
+    const { specTree } = createSpecTree({
+      files,
+      findSpecPaths: async () => [
+        'project.sdd',
+      ],
+    });
+
+    await expect(specTree.build({
+      rootDirectoryPath: resolve('/workspace/other'),
+      targetDirectoryPath,
+    })).resolves.toMatchObject({
+      rootDirectoryPath: targetDirectoryPath,
+      specs: [
+        {
+          path: 'project.sdd',
+        },
+      ],
+    });
+  });
+
+  it('raises when the requested root is missing or not a directory', async () => {
+    const targetFilePath = join(targetDirectoryPath, 'feature.ts');
+
+    await expect(createSpecTree({
+      directories: [],
+      existingPaths: [
+        targetFilePath,
+      ],
+    }).specTree.build({
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: targetFilePath,
+    })).rejects.toBeInstanceOf(SpecTreeTargetNotFoundError);
 
     await expect(createSpecTree({
       directories: [],
       existingPaths: [
         targetDirectoryPath,
+        targetFilePath,
       ],
     }).specTree.build({
-      targetDirectoryPath,
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: targetFilePath,
     })).rejects.toBeInstanceOf(SpecTreeTargetNotDirectoryError);
+  });
+
+  it('wraps requested root lookup failures as discovery errors', async () => {
+    const targetFilePath = join(targetDirectoryPath, 'feature.ts');
+    const fileSystem = new DirectoryContextLookupFailureFileSystem(targetDirectoryPath, {
+      directories: [],
+      files: {
+        [targetFilePath]: 'export {};\n',
+      },
+    });
+    const specTree = new SpecTree(
+      fileSystem,
+      new SpecParser(fileSystem),
+      async () => [],
+    );
+
+    await expect(specTree.build({
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: targetFilePath,
+    })).rejects.toThrow(SpecTreeDiscoveryError);
+  });
+
+  it('raises when ordinary file target specs are ambiguous', async () => {
+    const targetFilePath = join(targetDirectoryPath, 'Feature.ts');
+    const files = {
+      [targetFilePath]: 'export {};\n',
+      [join(targetDirectoryPath, 'FEATURE.sdd')]: specContent('Upper Feature'),
+      [join(targetDirectoryPath, 'feature.sdd')]: specContent('Lower Feature'),
+    };
+    const { specTree } = createSpecTree({
+      files,
+      findSpecPaths: async () => [
+        'FEATURE.sdd',
+        'feature.sdd',
+      ],
+    });
+
+    await expect(specTree.build({
+      targetPath: targetFilePath,
+    })).rejects.toBeInstanceOf(SpecTreeAmbiguousTargetSpecError);
+  });
+
+  it('raises when upward directory context specs are ambiguous', async () => {
+    const billingDirectoryPath = join(targetDirectoryPath, 'Billing');
+    const files = {
+      [join(targetDirectoryPath, 'BILLING.sdd')]: specContent('Upper Billing'),
+      [join(targetDirectoryPath, 'billing.sdd')]: specContent('Lower Billing'),
+    };
+    const { specTree } = createSpecTree({
+      directories: [
+        targetDirectoryPath,
+        billingDirectoryPath,
+      ],
+      files,
+      findSpecPaths: async () => [
+        'BILLING.sdd',
+        'billing.sdd',
+      ],
+    });
+
+    await expect(specTree.build({
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: billingDirectoryPath,
+    })).rejects.toBeInstanceOf(SpecTreeAmbiguousDirectorySpecError);
   });
 
   it('wraps target validation and discovery failures', async () => {
@@ -417,6 +720,28 @@ Tasks:
     }).specTree.build({
       targetDirectoryPath,
     })).rejects.toThrow('Failed to discover SpecDD specs under /workspace/project: Error: glob failed');
+  });
+
+  it('wraps directory context lookup failures as discovery errors', async () => {
+    const fileSystem = new DirectoryContextLookupFailureFileSystem(join(targetDirectoryPath, 'feature'), {
+      directories: [
+        targetDirectoryPath,
+      ],
+      files: {
+        [join(targetDirectoryPath, 'feature.sdd')]: specContent('Feature'),
+      },
+    });
+    const specTree = new SpecTree(
+      fileSystem,
+      new SpecParser(fileSystem),
+      async () => [
+        'feature.sdd',
+      ],
+    );
+
+    await expect(specTree.build({
+      targetDirectoryPath,
+    })).rejects.toThrow('Failed to discover SpecDD specs under /workspace/project: Error: directory context lookup failed');
   });
 
   it('raises when lowercase directory-level spec matches are ambiguous', async () => {

@@ -102,7 +102,7 @@ Adapters should stay thin. Application decisions belong in services, not infrast
 ## Project Layout
 
 ```text
-app.sdd                             repository root spec
+cli.sdd                             repository root spec
 src/src.sdd                         source tree spec
 src/main.ts                         CLI entrypoint
 src/main.sdd                        entrypoint spec

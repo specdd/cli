@@ -22,6 +22,7 @@ import { SignatureVerifier } from './services/signature-verifier/signature-verif
 import { SpecLinter } from './services/spec-linter/spec-linter.js';
 import { SpecParser } from './services/spec-parser/spec-parser.js';
 import { SpecResolver } from './services/spec-resolver/spec-resolver.js';
+import { SpecTargetContext } from './services/spec-target-context/spec-target-context.js';
 import { SpecTree } from './services/spec-tree/spec-tree.js';
 import { SpecDDVersion } from './services/specdd-version/specdd-version.js';
 import { UpdateChecker } from './services/update-checker/update-checker.js';
@@ -36,6 +37,8 @@ export class Container {
   public readonly specDDVersion: SpecDDVersion;
 
   public readonly specParser: SpecParser;
+
+  public readonly specTargetContext: SpecTargetContext;
 
   public readonly specLinter: SpecLinter;
 
@@ -88,19 +91,27 @@ export class Container {
 
     this.specParser = new SpecParser(fileSystem);
 
+    this.specTargetContext = new SpecTargetContext(fileSystem);
+
     this.specLinter = new SpecLinter(
       fileSystem,
       this.specParser,
+      undefined,
+      this.specTargetContext,
     );
 
     this.specResolver = new SpecResolver(
       fileSystem,
       this.specParser,
+      undefined,
+      this.specTargetContext,
     );
 
     this.specTree = new SpecTree(
       fileSystem,
       this.specParser,
+      undefined,
+      this.specTargetContext,
     );
 
     this.bootstrapMetadata = new BootstrapMetadata(fileSystem);

@@ -3,7 +3,6 @@ import {
   basename,
   join,
   posix,
-  resolve,
 } from 'node:path';
 import { CliError } from '../../cli-error.js';
 import type {
@@ -15,14 +14,27 @@ import type {
   SpecParser,
   SpecSection,
 } from '../spec-parser/spec-parser.js';
+import {
+  type SpecDirectoryContextMatch,
+} from '../spec-directory-context/spec-directory-context.js';
+import {
+  SpecTargetContext,
+  SpecTargetContextDiscoveryError,
+  SpecTargetContextRootNotDirectoryError,
+  SpecTargetContextRootNotFoundError,
+  type SpecTargetContextTarget,
+  SpecTargetContextTargetNotFoundError,
+} from '../spec-target-context/spec-target-context.js';
 
 const DEFAULT_SECTION_NAMES = [
   'Purpose',
 ];
 
 export type SpecTreeRequest = {
-  readonly targetDirectoryPath: string;
+  readonly rootDirectoryPath?: string;
   readonly sectionNames?: readonly string[];
+  readonly targetDirectoryPath?: string;
+  readonly targetPath?: string;
 };
 
 export type SpecTreeSectionLookup = Readonly<Record<string, readonly SpecSection[]>>;
@@ -41,13 +53,16 @@ export type SpecTreeDirectoryNode = {
   readonly name: string;
   readonly path: string;
   readonly spec: SpecTreeSpecNode | null;
+  readonly specs: readonly SpecTreeSpecNode[];
   readonly children: readonly SpecTreeNode[];
 };
 
 export type SpecTreeNode = SpecTreeDirectoryNode | SpecTreeSpecNode;
 
 export type SpecTreeResult = {
+  readonly rootDirectoryPath: string;
   readonly targetDirectoryPath: string;
+  readonly targetPath: string;
   readonly sectionNames: readonly string[];
   readonly root: SpecTreeDirectoryNode;
   readonly specs: readonly SpecTreeSpecNode[];
@@ -66,18 +81,34 @@ type SpecTreeParsedSpec = {
   readonly path: string;
 };
 
+type SpecTreeTarget = SpecTargetContextTarget;
+
+type SpecTreeTargetContextDependency = Pick<
+  SpecTargetContext,
+  | 'contextSpecPaths'
+  | 'directoryContextMatches'
+  | 'normalizeRelativePath'
+  | 'recursiveSpecPaths'
+  | 'resolvePreferredRootDirectoryPath'
+  | 'resolveTarget'
+  | 'targetSpecPaths'
+  | 'uniqueSortedSpecPaths'
+>;
+
+type MutableSpecTreeNode = MutableSpecTreeDirectoryNode | SpecTreeSpecNode;
+
 type MutableSpecTreeDirectoryNode = {
   readonly type: 'directory';
   readonly name: string;
   readonly path: string;
-  spec: SpecTreeSpecNode | null;
-  readonly children: SpecTreeNode[];
+  readonly specs: SpecTreeSpecNode[];
+  readonly children: MutableSpecTreeNode[];
   readonly directoryChildren: Map<string, MutableSpecTreeDirectoryNode>;
 };
 
 export class SpecTreeTargetNotFoundError extends CliError {
   public constructor(path: string) {
-    super(`Spec tree target directory not found: ${path}`);
+    super(`Spec tree target not found: ${path}`);
     this.name = 'SpecTreeTargetNotFoundError';
   }
 }
@@ -86,6 +117,13 @@ export class SpecTreeTargetNotDirectoryError extends CliError {
   public constructor(path: string) {
     super(`Spec tree target path is not a directory: ${path}`);
     this.name = 'SpecTreeTargetNotDirectoryError';
+  }
+}
+
+export class SpecTreeAmbiguousTargetSpecError extends CliError {
+  public constructor(path: string, specPaths: readonly string[]) {
+    super(`Ambiguous target SpecDD specs for ${path}: ${specPaths.join(', ')}`);
+    this.name = 'SpecTreeAmbiguousTargetSpecError';
   }
 }
 
@@ -111,37 +149,38 @@ export class SpecTreeParseError extends CliError {
 }
 
 export class SpecTree {
-  private readonly fileSystem: SpecTreeFileSystemDependency;
-
   private readonly specParser: SpecTreeSpecParserDependency;
 
   private readonly findSpecPaths: SpecTreePathFinder;
+
+  private readonly targetContext: SpecTreeTargetContextDependency;
 
   public constructor(
     fileSystem: SpecTreeFileSystemDependency,
     specParser: SpecTreeSpecParserDependency,
     findSpecPaths: SpecTreePathFinder = SpecTree.findSpecPaths,
+    targetContext: SpecTreeTargetContextDependency = new SpecTargetContext(fileSystem),
   ) {
-    this.fileSystem = fileSystem;
     this.specParser = specParser;
     this.findSpecPaths = findSpecPaths;
+    this.targetContext = targetContext;
   }
 
   public async build(request: SpecTreeRequest): Promise<SpecTreeResult> {
-    const targetDirectoryPath = resolve(request.targetDirectoryPath);
     const sectionNames = this.requestedSectionNames(request.sectionNames);
-
-    await this.validateTargetDirectory(targetDirectoryPath);
-
-    const relativeSpecPaths = await this.discoverSpecPaths(targetDirectoryPath);
-    const parsedSpecs = await this.parseSpecs(targetDirectoryPath, relativeSpecPaths);
-    const directoryLevelSpecPaths = this.directoryLevelSpecPaths(targetDirectoryPath, parsedSpecs);
+    const target = await this.resolveTarget(request.targetPath ?? request.targetDirectoryPath ?? '.');
+    const rootDirectoryPath = await this.resolveRootDirectoryPath(request.rootDirectoryPath, target);
+    const relativeSpecPaths = await this.discoverRelevantSpecPaths(rootDirectoryPath, target);
+    const parsedSpecs = await this.parseSpecs(rootDirectoryPath, relativeSpecPaths);
+    const directoryContextMatches = await this.directoryContextMatches(rootDirectoryPath, parsedSpecs);
 
     return {
-      root: this.buildRootNode(targetDirectoryPath, parsedSpecs, sectionNames, directoryLevelSpecPaths),
+      root: this.buildRootNode(rootDirectoryPath, parsedSpecs, sectionNames, directoryContextMatches),
+      rootDirectoryPath,
       sectionNames,
-      specs: this.buildFlatSpecList(parsedSpecs, sectionNames, directoryLevelSpecPaths),
-      targetDirectoryPath,
+      specs: this.buildFlatSpecList(parsedSpecs, sectionNames, directoryContextMatches),
+      targetDirectoryPath: target.directoryPath,
+      targetPath: target.path,
     };
   }
 
@@ -155,28 +194,24 @@ export class SpecTree {
     ];
   }
 
-  private async validateTargetDirectory(targetDirectoryPath: string): Promise<void> {
-    let targetExists: boolean;
-    let targetIsDirectory: boolean;
-
+  private async resolveTarget(targetPath: string): Promise<SpecTreeTarget> {
     try {
-      targetExists = await this.fileSystem.exists(targetDirectoryPath);
+      return await this.targetContext.resolveTarget(targetPath);
     } catch (error) {
-      throw new SpecTreeDiscoveryError(targetDirectoryPath, String(error));
+      this.raiseTargetContextError(error);
+      throw error;
     }
+  }
 
-    if (!targetExists) {
-      throw new SpecTreeTargetNotFoundError(targetDirectoryPath);
-    }
-
+  private async resolveRootDirectoryPath(
+    requestedRootDirectoryPath: string | undefined,
+    target: SpecTreeTarget,
+  ): Promise<string> {
     try {
-      targetIsDirectory = await this.fileSystem.isDirectory(targetDirectoryPath);
+      return await this.targetContext.resolvePreferredRootDirectoryPath(requestedRootDirectoryPath, target);
     } catch (error) {
-      throw new SpecTreeDiscoveryError(targetDirectoryPath, String(error));
-    }
-
-    if (!targetIsDirectory) {
-      throw new SpecTreeTargetNotDirectoryError(targetDirectoryPath);
+      this.raiseTargetContextError(error);
+      throw error;
     }
   }
 
@@ -184,10 +219,40 @@ export class SpecTree {
     try {
       return [
         ...(await this.findSpecPaths(targetDirectoryPath)),
-      ].map((path) => this.normalizeRelativePath(path)).sort();
+      ].map((path) => this.targetContext.normalizeRelativePath(path)).sort();
     } catch (error) {
       throw new SpecTreeDiscoveryError(targetDirectoryPath, String(error));
     }
+  }
+
+  private async discoverRelevantSpecPaths(
+    rootDirectoryPath: string,
+    target: SpecTreeTarget,
+  ): Promise<readonly string[]> {
+    const allRelativeSpecPaths = await this.discoverSpecPaths(rootDirectoryPath);
+    const contextResult = this.targetContext.contextSpecPaths(rootDirectoryPath, target.directoryPath, allRelativeSpecPaths);
+    const targetSpecResult = this.targetContext.targetSpecPaths(rootDirectoryPath, target, allRelativeSpecPaths);
+    const recursiveSpecPaths = 'directory' === target.kind
+      ? this.targetContext.recursiveSpecPaths(rootDirectoryPath, target.path, allRelativeSpecPaths)
+      : [];
+
+    if (0 < contextResult.ambiguities.length) {
+      const ambiguity = contextResult.ambiguities[0] as NonNullable<typeof contextResult.ambiguities[0]>;
+
+      throw new SpecTreeAmbiguousDirectorySpecError(ambiguity.directoryPath, ambiguity.specPaths);
+    }
+
+    if (0 < targetSpecResult.ambiguities.length) {
+      const ambiguity = targetSpecResult.ambiguities[0] as NonNullable<typeof targetSpecResult.ambiguities[0]>;
+
+      throw new SpecTreeAmbiguousTargetSpecError(ambiguity.targetPath, ambiguity.specPaths);
+    }
+
+    return this.targetContext.uniqueSortedSpecPaths([
+      ...contextResult.matches.map((match) => match.specPath),
+      ...targetSpecResult.specPaths,
+      ...recursiveSpecPaths,
+    ]);
   }
 
   private async parseSpecs(
@@ -220,22 +285,27 @@ export class SpecTree {
     targetDirectoryPath: string,
     parsedSpecs: readonly SpecTreeParsedSpec[],
     sectionNames: readonly string[],
-    directoryLevelSpecPaths: ReadonlySet<string>,
+    directoryContextMatches: readonly SpecDirectoryContextMatch[],
   ): SpecTreeDirectoryNode {
     const root = this.createMutableDirectoryNode('.', basename(targetDirectoryPath));
+    const parsedSpecByPath = new Map(parsedSpecs.map((parsedSpec) => [
+      parsedSpec.path,
+      parsedSpec,
+    ]));
+    const directoryLevelSpecPaths = new Set(directoryContextMatches.map((match) => match.specPath));
+
+    for (const match of directoryContextMatches) {
+      const parsedSpec = parsedSpecByPath.get(match.specPath) as SpecTreeParsedSpec;
+
+      this.directoryNode(root, match.directoryPath).specs.push(this.specNode(parsedSpec, sectionNames, true));
+    }
 
     for (const parsedSpec of parsedSpecs) {
-      const directoryNode = this.directoryNode(root, parsedSpec.directoryPath);
-      const isDirectoryLevel = directoryLevelSpecPaths.has(parsedSpec.path);
-      const specNode = this.specNode(parsedSpec, sectionNames, isDirectoryLevel);
-
-      if (isDirectoryLevel) {
-        directoryNode.spec = specNode;
-
+      if (directoryLevelSpecPaths.has(parsedSpec.path)) {
         continue;
       }
 
-      directoryNode.children.push(specNode);
+      this.directoryNode(root, parsedSpec.directoryPath).children.push(this.specNode(parsedSpec, sectionNames, false));
     }
 
     return this.toDirectoryNode(root);
@@ -244,8 +314,10 @@ export class SpecTree {
   private buildFlatSpecList(
     parsedSpecs: readonly SpecTreeParsedSpec[],
     sectionNames: readonly string[],
-    directoryLevelSpecPaths: ReadonlySet<string>,
+    directoryContextMatches: readonly SpecDirectoryContextMatch[],
   ): readonly SpecTreeSpecNode[] {
+    const directoryLevelSpecPaths = new Set(directoryContextMatches.map((match) => match.specPath));
+
     return parsedSpecs.map((parsedSpec) => this.specNode(
       parsedSpec,
       sectionNames,
@@ -253,70 +325,25 @@ export class SpecTree {
     ));
   }
 
-  private directoryLevelSpecPaths(
-    targetDirectoryPath: string,
+  private async directoryContextMatches(
+    rootDirectoryPath: string,
     parsedSpecs: readonly SpecTreeParsedSpec[],
-  ): Set<string> {
-    const specsByDirectoryPath = this.groupSpecsByDirectoryPath(parsedSpecs);
-    const directoryLevelSpecPaths = new Set<string>();
+  ): Promise<readonly SpecDirectoryContextMatch[]> {
+    let result;
 
-    for (const [directoryPath, specs] of specsByDirectoryPath.entries()) {
-      const directoryBasename = this.directoryBasename(targetDirectoryPath, directoryPath);
-      const directoryLevelSpec = this.directoryLevelSpec(directoryPath, directoryBasename, specs);
-
-      if (null !== directoryLevelSpec) {
-        directoryLevelSpecPaths.add(directoryLevelSpec.path);
-      }
+    try {
+      result = await this.targetContext.directoryContextMatches(rootDirectoryPath, parsedSpecs);
+    } catch (error) {
+      throw new SpecTreeDiscoveryError(rootDirectoryPath, (error as SpecTargetContextDiscoveryError).reason);
     }
 
-    return directoryLevelSpecPaths;
-  }
+    if (0 < result.ambiguities.length) {
+      const ambiguity = result.ambiguities[0] as NonNullable<typeof result.ambiguities[0]>;
 
-  private groupSpecsByDirectoryPath(
-    parsedSpecs: readonly SpecTreeParsedSpec[],
-  ): ReadonlyMap<string, readonly SpecTreeParsedSpec[]> {
-    const specsByDirectoryPath = new Map<string, SpecTreeParsedSpec[]>();
-
-    for (const parsedSpec of parsedSpecs) {
-      specsByDirectoryPath.set(parsedSpec.directoryPath, [
-        ...(specsByDirectoryPath.get(parsedSpec.directoryPath) ?? []),
-        parsedSpec,
-      ]);
+      throw new SpecTreeAmbiguousDirectorySpecError(ambiguity.directoryPath, ambiguity.specPaths);
     }
 
-    return specsByDirectoryPath;
-  }
-
-  private directoryBasename(targetDirectoryPath: string, directoryPath: string): string {
-    if ('.' === directoryPath) {
-      return basename(targetDirectoryPath);
-    }
-
-    return posix.basename(directoryPath);
-  }
-
-  private directoryLevelSpec(
-    directoryPath: string,
-    directoryBasename: string,
-    specs: readonly SpecTreeParsedSpec[],
-  ): SpecTreeParsedSpec | null {
-    const exactMatch = specs.find((spec) => this.specBasename(spec) === directoryBasename);
-
-    if (undefined !== exactMatch) {
-      return exactMatch;
-    }
-
-    const lowercaseMatches = specs.filter((spec) => this.specBasename(spec).toLowerCase() === directoryBasename.toLowerCase());
-
-    if (1 < lowercaseMatches.length) {
-      throw new SpecTreeAmbiguousDirectorySpecError(directoryPath, lowercaseMatches.map((spec) => spec.path));
-    }
-
-    return lowercaseMatches[0] ?? null;
-  }
-
-  private specBasename(spec: SpecTreeParsedSpec): string {
-    return spec.name.slice(0, -'.sdd'.length);
+    return result.matches;
   }
 
   private directoryNode(
@@ -377,41 +404,51 @@ export class SpecTree {
       directoryChildren: new Map(),
       name,
       path,
-      spec: null,
+      specs: [],
       type: 'directory',
     };
   }
 
   private toDirectoryNode(node: MutableSpecTreeDirectoryNode): SpecTreeDirectoryNode {
+    const specs = [
+      ...node.specs,
+    ];
+
     return {
       children: node.children.sort((left, right) => left.path.localeCompare(right.path)).map((child) => {
         if ('directory' === child.type) {
-          return this.toDirectoryNode(child as MutableSpecTreeDirectoryNode);
+          return this.toDirectoryNode(child);
         }
 
         return child;
       }),
       name: node.name,
       path: node.path,
-      spec: node.spec,
+      spec: specs[0] ?? null,
+      specs,
       type: 'directory',
     };
   }
 
-  private normalizeRelativePath(path: string): string {
-    const normalizedPath = path.replaceAll('\\', '/');
-
-    if (normalizedPath.startsWith('./')) {
-      return normalizedPath.slice(2);
+  private raiseTargetContextError(error: unknown): void {
+    if (error instanceof SpecTargetContextTargetNotFoundError || error instanceof SpecTargetContextRootNotFoundError) {
+      throw new SpecTreeTargetNotFoundError(error.path);
     }
 
-    return normalizedPath;
+    if (error instanceof SpecTargetContextRootNotDirectoryError) {
+      throw new SpecTreeTargetNotDirectoryError(error.path);
+    }
+
+    if (error instanceof SpecTargetContextDiscoveryError) {
+      throw new SpecTreeDiscoveryError(error.path, error.reason);
+    }
   }
 
   private static async findSpecPaths(targetDirectoryPath: string): Promise<readonly string[]> {
     return fg('**/*.sdd', {
       cwd: targetDirectoryPath,
       dot: true,
+      followSymbolicLinks: false,
       onlyFiles: true,
       unique: true,
     });

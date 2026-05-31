@@ -10,6 +10,7 @@ import { SignatureVerifier } from './services/signature-verifier/signature-verif
 import { SpecLinter } from './services/spec-linter/spec-linter.js';
 import { SpecParser } from './services/spec-parser/spec-parser.js';
 import { SpecResolver } from './services/spec-resolver/spec-resolver.js';
+import { SpecTargetContext } from './services/spec-target-context/spec-target-context.js';
 import { SpecTree } from './services/spec-tree/spec-tree.js';
 import { SpecDDVersion } from './services/specdd-version/specdd-version.js';
 import { UpdateChecker } from './services/update-checker/update-checker.js';
@@ -24,6 +25,7 @@ describe('Container', () => {
     expect(container.distributionClient).toBeInstanceOf(DistributionClient);
     expect(container.specDDVersion).toBeInstanceOf(SpecDDVersion);
     expect(container.specParser).toBeInstanceOf(SpecParser);
+    expect(container.specTargetContext).toBeInstanceOf(SpecTargetContext);
     expect(container.specLinter).toBeInstanceOf(SpecLinter);
     expect(container.specResolver).toBeInstanceOf(SpecResolver);
     expect(container.specTree).toBeInstanceOf(SpecTree);

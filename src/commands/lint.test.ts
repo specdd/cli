@@ -56,6 +56,16 @@ const createLintResult = (): SpecLintResult => {
     path: 'billing/billing.sdd',
     severity: 'error' as const,
   };
+  const billingSpec = {
+    diagnostics: [
+      syntaxDiagnostic,
+      directoryDiagnostic,
+    ],
+    directoryLevel: true,
+    name: 'billing.sdd',
+    path: 'billing/billing.sdd',
+    type: 'spec' as const,
+  };
 
   return {
     diagnostics: [
@@ -70,33 +80,30 @@ const createLintResult = (): SpecLintResult => {
         {
           diagnostics: [],
           directoryLevel: false,
-          name: 'app.sdd',
-          path: 'app.sdd',
+          name: 'project.sdd',
+          path: 'project.sdd',
           type: 'spec',
         },
         {
           children: [],
           name: 'billing',
           path: 'billing',
-          spec: {
-            diagnostics: [
-              syntaxDiagnostic,
-              directoryDiagnostic,
-            ],
-            directoryLevel: true,
-            name: 'billing.sdd',
-            path: 'billing/billing.sdd',
-            type: 'spec',
-          },
+          spec: billingSpec,
+          specs: [
+            billingSpec,
+          ],
           type: 'directory',
         },
       ],
       name: 'project',
       path: '.',
       spec: null,
+      specs: [],
       type: 'directory',
     },
+    rootDirectoryPath: '/project',
     targetDirectoryPath: '/project',
+    targetPath: '/project',
     warningCount: 0,
   };
 };
@@ -112,17 +119,20 @@ const createCleanLintResult = (): SpecLintResult => {
         {
           diagnostics: [],
           directoryLevel: false,
-          name: 'app.sdd',
-          path: 'app.sdd',
+          name: 'project.sdd',
+          path: 'project.sdd',
           type: 'spec',
         },
       ],
       name: 'project',
       path: '.',
       spec: null,
+      specs: [],
       type: 'directory',
     },
+    rootDirectoryPath: '/project',
     targetDirectoryPath: '/project',
+    targetPath: '/project',
     warningCount: 0,
   };
 };
@@ -149,7 +159,7 @@ describe('lint command', () => {
     const help = renderHelp(command);
 
     expect(command.description()).toBe('Lint SpecDD spec files.');
-    expect(pathArgument?.description).toBe('Directory to lint. Defaults to the current directory.');
+    expect(pathArgument?.description).toBe('Directory, .sdd file, or ordinary file to lint. Defaults to the current directory.');
     expect(formatOption?.description).toBe('Output format: text or json.');
     expect(formatOption?.defaultValue).toBe('text');
     expect(help).toContain('Copyright (c) 2026 Matīss Treinis and SpecDD contributors');
@@ -182,7 +192,7 @@ describe('lint command', () => {
     const warningDiagnostic = {
       code: 'style',
       message: 'Purpose section is recommended',
-      path: 'app.sdd',
+      path: 'project.sdd',
       severity: 'warning' as const,
     };
 
@@ -192,7 +202,7 @@ describe('lint command', () => {
         warningDiagnostic,
       ],
       warningCount: 1,
-    }, 'text')).toBe(`app.sdd:
+    }, 'text')).toBe(`project.sdd:
   - Style warning: Purpose section is recommended
 
 0 errors, 1 warning in 1 spec
@@ -208,8 +218,8 @@ describe('lint command', () => {
             {
               diagnostics: [],
               directoryLevel: false,
-              name: 'app.sdd',
-              path: 'app.sdd',
+              name: 'project.sdd',
+              path: 'project.sdd',
             },
           ],
         },
@@ -242,7 +252,9 @@ describe('lint command', () => {
       errorCount: 2,
       filesChecked: 2,
       ok: false,
+      rootDirectoryPath: '/project',
       targetDirectoryPath: '/project',
+      targetPath: '/project',
       warningCount: 0,
     });
   });
@@ -267,18 +279,21 @@ describe('lint command', () => {
                 name: 'child',
                 path: 'parent/child',
                 spec: null,
+                specs: [],
                 type: 'directory',
               },
             ],
             name: 'parent',
             path: 'parent',
             spec: null,
+            specs: [],
             type: 'directory',
           },
         ],
         name: 'project',
         path: '.',
         spec: null,
+        specs: [],
         type: 'directory',
       },
     };
@@ -310,7 +325,8 @@ describe('lint command', () => {
 
     expect(specLinter.requests).toEqual([
       {
-        targetDirectoryPath: '/project',
+        rootDirectoryPath: '/project',
+        targetPath: '/project',
       },
     ]);
     expect(output.join('')).toContain('2 errors, 0 warnings in 2 specs');
@@ -339,7 +355,8 @@ describe('lint command', () => {
 
     expect(specLinter.requests).toEqual([
       {
-        targetDirectoryPath: '/project/src',
+        rootDirectoryPath: '/project',
+        targetPath: '/project/src',
       },
     ]);
     expect(JSON.parse(output.join('')).ok).toBe(false);
@@ -381,7 +398,8 @@ describe('lint command', () => {
 
     expect(specLinter.requests).toEqual([
       {
-        targetDirectoryPath: '/project',
+        rootDirectoryPath: '/project',
+        targetPath: '/project',
       },
     ]);
   });

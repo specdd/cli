@@ -1,6 +1,9 @@
 import { jest } from '@jest/globals';
 import type { Command } from 'commander';
-import type { SpecSection } from '../services/spec-parser/spec-parser.js';
+import {
+  SPEC_SECTION_NAMES,
+  type SpecSection,
+} from '../services/spec-parser/spec-parser.js';
 import type {
   SpecResolveRequest,
   SpecResolveResult,
@@ -62,6 +65,44 @@ const createResolveResult = (): SpecResolveResult => {
   const appPurpose = section('Purpose', 'Own the application.');
   const featurePurpose = section('Purpose', 'Own feature behavior.');
   const sharedPurpose = section('Purpose', 'Share behavior.\nAcross features.\n');
+  const featureSpec = {
+    directoryLevel: true,
+    name: 'feature.sdd',
+    path: 'feature/feature.sdd',
+    reasons: [
+      {
+        kind: 'target' as const,
+      },
+    ],
+    sections: {
+      Purpose: [
+        featurePurpose,
+      ],
+    },
+    title: 'Feature',
+    type: 'spec' as const,
+  };
+  const sharedSpec = {
+    directoryLevel: true,
+    name: 'shared.sdd',
+    path: 'shared/shared.sdd',
+    reasons: [
+      {
+        depth: 1,
+        fromPath: 'feature/feature.sdd',
+        kind: 'link' as const,
+        sectionName: 'References' as const,
+        target: '../shared/**',
+      },
+    ],
+    sections: {
+      Purpose: [
+        sharedPurpose,
+      ],
+    },
+    title: 'Shared',
+    type: 'spec' as const,
+  };
 
   return {
     linkDepth: 1,
@@ -69,8 +110,8 @@ const createResolveResult = (): SpecResolveResult => {
       children: [
         {
           directoryLevel: false,
-          name: 'app.sdd',
-          path: 'app.sdd',
+          name: 'project.sdd',
+          path: 'project.sdd',
           reasons: [
             {
               directoryPath: '.',
@@ -109,56 +150,27 @@ const createResolveResult = (): SpecResolveResult => {
           ],
           name: 'feature',
           path: 'feature',
-          spec: {
-            directoryLevel: true,
-            name: 'feature.sdd',
-            path: 'feature/feature.sdd',
-            reasons: [
-              {
-                kind: 'target',
-              },
-            ],
-            sections: {
-              Purpose: [
-                featurePurpose,
-              ],
-            },
-            title: 'Feature',
-            type: 'spec',
-          },
+          spec: featureSpec,
+          specs: [
+            featureSpec,
+          ],
           type: 'directory',
         },
         {
           children: [],
           name: 'shared',
           path: 'shared',
-          spec: {
-            directoryLevel: true,
-            name: 'shared.sdd',
-            path: 'shared/shared.sdd',
-            reasons: [
-              {
-                depth: 1,
-                fromPath: 'feature/feature.sdd',
-                kind: 'link',
-                sectionName: 'References',
-                target: '../shared/**',
-              },
-            ],
-            sections: {
-              Purpose: [
-                sharedPurpose,
-              ],
-            },
-            title: 'Shared',
-            type: 'spec',
-          },
+          spec: sharedSpec,
+          specs: [
+            sharedSpec,
+          ],
           type: 'directory',
         },
       ],
       name: 'project',
       path: '.',
       spec: null,
+      specs: [],
       type: 'directory',
     },
     rootDirectoryPath: '/project',
@@ -166,12 +178,31 @@ const createResolveResult = (): SpecResolveResult => {
       'Purpose',
     ],
     specs: [],
+    targetDirectoryPath: '/project/feature',
     targetPath: '/project/feature',
   };
 };
 
 const createSparseResolveResult = (): SpecResolveResult => {
   const inlinePurpose = section('Purpose', '\n  \n', 'Inline purpose');
+  const featureSpec = {
+    directoryLevel: true,
+    name: 'feature.sdd',
+    path: 'feature/feature.sdd',
+    reasons: [
+      {
+        directoryPath: 'feature',
+        kind: 'parent' as const,
+      },
+    ],
+    sections: {
+      Purpose: [
+        inlinePurpose,
+      ],
+    },
+    title: 'Feature',
+    type: 'spec' as const,
+  };
 
   return {
     linkDepth: 0,
@@ -200,36 +231,24 @@ const createSparseResolveResult = (): SpecResolveResult => {
           name: 'empty',
           path: 'empty',
           spec: null,
+          specs: [],
           type: 'directory',
         },
         {
           children: [],
           name: 'feature',
           path: 'feature',
-          spec: {
-            directoryLevel: true,
-            name: 'feature.sdd',
-            path: 'feature/feature.sdd',
-            reasons: [
-              {
-                directoryPath: 'feature',
-                kind: 'parent',
-              },
-            ],
-            sections: {
-              Purpose: [
-                inlinePurpose,
-              ],
-            },
-            title: 'Feature',
-            type: 'spec',
-          },
+          spec: featureSpec,
+          specs: [
+            featureSpec,
+          ],
           type: 'directory',
         },
       ],
       name: 'project',
       path: '.',
       spec: null,
+      specs: [],
       type: 'directory',
     },
     rootDirectoryPath: '/project',
@@ -237,6 +256,7 @@ const createSparseResolveResult = (): SpecResolveResult => {
       'Purpose',
     ],
     specs: [],
+    targetDirectoryPath: '/project/feature',
     targetPath: '/project/feature',
   };
 };
@@ -249,6 +269,7 @@ const createEmptyResolveResult = (): SpecResolveResult => {
       name: 'project',
       path: '.',
       spec: null,
+      specs: [],
       type: 'directory',
     },
     rootDirectoryPath: '/project',
@@ -256,6 +277,7 @@ const createEmptyResolveResult = (): SpecResolveResult => {
       'Purpose',
     ],
     specs: [],
+    targetDirectoryPath: '/project',
     targetPath: '/project',
   };
 };
@@ -287,10 +309,10 @@ describe('resolve command', () => {
 
     expect(command.description()).toBe('Resolve relevant SpecDD specs for a target path.');
     expect(targetArgument?.required).toBe(true);
-    expect(targetArgument?.description).toBe('Directory or .sdd file to resolve.');
+    expect(targetArgument?.description).toBe('Directory, .sdd file, or ordinary file to resolve.');
     expect(rootOption?.description).toBe('Root directory for resolution. Defaults to the current directory.');
-    expect(sectionOption?.description).toBe('Section to include. May be repeated.');
-    expect(sectionsOption?.description).toBe('Comma-separated sections to include.');
+    expect(sectionOption?.description).toBe('Section to include, or all. May be repeated.');
+    expect(sectionsOption?.description).toBe('Comma-separated sections to include, or all.');
     expect(depthOption?.description).toBe('Soft-link expansion depth: non-negative integer or all.');
     expect(depthOption?.defaultValue).toBe('2');
     expect(formatOption?.description).toBe('Output format: text, json, or json-extended.');
@@ -320,6 +342,10 @@ describe('resolve command', () => {
       'Must',
       'Tasks',
     ]);
+    expect(resolveResolveSectionNames([], 'all')).toEqual(SPEC_SECTION_NAMES);
+    expect(resolveResolveSectionNames([
+      'all',
+    ], undefined)).toEqual(SPEC_SECTION_NAMES);
   });
 
   it('resolves and rejects depth values', () => {
@@ -355,11 +381,91 @@ describe('resolve command', () => {
       Across features.
 
 /
-  app.sdd
+  project.sdd
     Relevant because:
       - Parent context for /
     Purpose:
       Own the application.
+`);
+  });
+
+  it('uses full spec paths when resolved directory specs share a file name', () => {
+    const broadSpec = {
+      directoryLevel: true,
+      name: 'bar.sdd',
+      path: 'foo/bar.sdd',
+      reasons: [
+        {
+          kind: 'target' as const,
+        },
+      ],
+      sections: {
+        Purpose: [
+          section('Purpose', 'Govern bar broadly.'),
+        ],
+      },
+      title: 'Broad Bar',
+      type: 'spec' as const,
+    };
+    const localSpec = {
+      directoryLevel: true,
+      name: 'bar.sdd',
+      path: 'foo/bar/bar.sdd',
+      reasons: [
+        {
+          kind: 'target' as const,
+        },
+      ],
+      sections: {
+        Purpose: [
+          section('Purpose', 'Govern bar locally.'),
+        ],
+      },
+      title: 'Local Bar',
+      type: 'spec' as const,
+    };
+    const result: SpecResolveResult = {
+      ...createResolveResult(),
+      root: {
+        children: [
+          {
+            children: [
+              {
+                children: [],
+                name: 'bar',
+                path: 'foo/bar',
+                spec: broadSpec,
+                specs: [
+                  broadSpec,
+                  localSpec,
+                ],
+                type: 'directory',
+              },
+            ],
+            name: 'foo',
+            path: 'foo',
+            spec: null,
+            specs: [],
+            type: 'directory',
+          },
+        ],
+        name: 'project',
+        path: '.',
+        spec: null,
+        specs: [],
+        type: 'directory',
+      },
+      targetDirectoryPath: '/project/foo/bar',
+      targetPath: '/project/foo/bar',
+    };
+
+    expect(renderResolve(result, 'text')).toBe(`/foo/bar/
+  foo/bar.sdd
+    Purpose:
+      Govern bar broadly.
+  foo/bar/bar.sdd
+    Purpose:
+      Govern bar locally.
 `);
   });
 
@@ -376,7 +482,7 @@ describe('resolve command', () => {
     });
     expect(parsedJson.directories[0].path).toBe('/');
     expect(parsedJson.directories[0].specs[0]).toMatchObject({
-      path: 'app.sdd',
+      path: 'project.sdd',
       reasons: [
         {
           directoryPath: '.',
@@ -390,6 +496,84 @@ describe('resolve command', () => {
     ]);
     expect(renderResolve(createResolveResult(), 'json')).not.toContain('lineNumber');
     expect(renderResolve(createResolveResult(), 'json')).not.toContain('entries');
+  });
+
+  it('orders ordinary file targets without a target spec by their resolved target directory', () => {
+    const featureSpec = {
+      directoryLevel: true,
+      name: 'feature.sdd',
+      path: 'feature/feature.sdd',
+      reasons: [
+        {
+          directoryPath: 'feature',
+          kind: 'parent' as const,
+        },
+      ],
+      sections: {
+        Purpose: [
+          section('Purpose', 'Govern feature files.'),
+        ],
+      },
+      title: 'Feature',
+      type: 'spec' as const,
+    };
+    const sharedSpec = {
+      directoryLevel: true,
+      name: 'shared.sdd',
+      path: 'shared/shared.sdd',
+      reasons: [
+        {
+          depth: 1,
+          fromPath: 'project.sdd',
+          kind: 'link' as const,
+          sectionName: 'References' as const,
+          target: './shared/**',
+        },
+      ],
+      sections: {
+        Purpose: [
+          section('Purpose', 'Shared context.'),
+        ],
+      },
+      title: 'Shared',
+      type: 'spec' as const,
+    };
+    const result: SpecResolveResult = {
+      ...createResolveResult(),
+      root: {
+        children: [
+          {
+            children: [],
+            name: 'shared',
+            path: 'shared',
+            spec: sharedSpec,
+            specs: [
+              sharedSpec,
+            ],
+            type: 'directory',
+          },
+          {
+            children: [],
+            name: 'feature',
+            path: 'feature',
+            spec: featureSpec,
+            specs: [
+              featureSpec,
+            ],
+            type: 'directory',
+          },
+        ],
+        name: 'project',
+        path: '.',
+        spec: null,
+        specs: [],
+        type: 'directory',
+      },
+      targetDirectoryPath: '/project/feature',
+      targetPath: '/project/feature/missing-spec.ts',
+    };
+
+    expect(renderResolve(result, 'text')).toMatch(/^\/feature\/\n  feature\.sdd/u);
   });
 
   it('omits empty directories and renders inline sections with empty bodies', () => {
@@ -500,6 +684,31 @@ describe('resolve command', () => {
       },
     ]);
     expect(JSON.parse(output.join('')).targetPath).toBe('/project/feature');
+  });
+
+  it('calls spec resolver with all section names when requested', async () => {
+    const specResolver = new FakeSpecResolver();
+    const output: string[] = [];
+    const command = createResolveCommand(createContainer(specResolver), () => '/project', (message) => {
+      output.push(message);
+    });
+
+    await command.parseAsync([
+      'src/feature',
+      '--sections',
+      'all',
+    ], {
+      from: 'user',
+    });
+
+    expect(specResolver.requests).toEqual([
+      {
+        linkDepth: 2,
+        rootDirectoryPath: '/project',
+        sectionNames: SPEC_SECTION_NAMES,
+        targetPath: '/project/src/feature',
+      },
+    ]);
   });
 
   it('uses process cwd and stdout when providers are omitted', async () => {

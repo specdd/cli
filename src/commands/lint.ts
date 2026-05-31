@@ -45,7 +45,9 @@ type LintCompactResult = {
   readonly errorCount: number;
   readonly filesChecked: number;
   readonly ok: boolean;
+  readonly rootDirectoryPath: string;
   readonly targetDirectoryPath: string;
+  readonly targetPath: string;
   readonly warningCount: number;
 };
 
@@ -89,7 +91,9 @@ const compactLintResult = (result: SpecLintResult): LintCompactResult => {
     errorCount: result.errorCount,
     filesChecked: result.filesChecked,
     ok: result.ok,
+    rootDirectoryPath: result.rootDirectoryPath,
     targetDirectoryPath: result.targetDirectoryPath,
+    targetPath: result.targetPath,
     warningCount: result.warningCount,
   };
 };
@@ -114,18 +118,17 @@ const compactLintDirectories = (
 };
 
 const compactLintDirectory = (node: SpecLintDirectoryNode): LintCompactDirectory | null => {
+  const directorySpecs = lintDirectorySpecs(node);
   const specChildren = node.children.filter((child): child is SpecLintSpecNode => 'spec' === child.type);
 
-  if ('.' !== node.path && null === node.spec && 0 === specChildren.length) {
+  if ('.' !== node.path && 0 === directorySpecs.length && 0 === specChildren.length) {
     return null;
   }
 
   return {
     path: renderLintDirectoryPath(node),
     specs: [
-      ...(null === node.spec ? [] : [
-        compactLintSpec(node.spec),
-      ]),
+      ...directorySpecs.map((spec) => compactLintSpec(spec)),
       ...specChildren.map((child) => compactLintSpec(child)),
     ],
   };
@@ -138,6 +141,10 @@ const compactLintSpec = (node: SpecLintSpecNode): LintCompactSpec => {
     name: node.name,
     path: node.path,
   };
+};
+
+const lintDirectorySpecs = (node: SpecLintDirectoryNode): readonly SpecLintSpecNode[] => {
+  return node.specs;
 };
 
 const renderLintText = (result: SpecLintResult): string => {
@@ -217,7 +224,7 @@ export const createLintCommand = (
 
   command
     .description('Lint SpecDD spec files.')
-    .argument('[path]', 'Directory to lint. Defaults to the current directory.')
+    .argument('[path]', 'Directory, .sdd file, or ordinary file to lint. Defaults to the current directory.')
     .option('--format <format>', 'Output format: text or json.', 'text')
     .addHelpText(
       'after',
@@ -225,8 +232,10 @@ export const createLintCommand = (
     )
     .action(async (targetPath: string | undefined, options: LintCommandOptions) => {
       const format = resolveLintOutputFormat(options.format);
+      const currentWorkingDirectoryPath = getCurrentWorkingDirectory();
       const result = await container.specLinter.lint({
-        targetDirectoryPath: resolveLintTargetPath(getCurrentWorkingDirectory(), targetPath),
+        rootDirectoryPath: currentWorkingDirectoryPath,
+        targetPath: resolveLintTargetPath(currentWorkingDirectoryPath, targetPath),
       });
 
       writeOutput(renderLintResult(result, format));

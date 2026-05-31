@@ -6,6 +6,7 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import {
+  basename,
   join,
   resolve,
 } from 'node:path';
@@ -16,6 +17,7 @@ import type {
 } from '../../infrastructure/file-system.js';
 import { SpecParser } from '../spec-parser/spec-parser.js';
 import {
+  SpecResolveAmbiguousTargetSpecError,
   SpecResolveAmbiguousDirectorySpecError,
   SpecResolveDiscoveryError,
   SpecResolver,
@@ -23,7 +25,6 @@ import {
   SpecResolveRootNotFoundError,
   SpecResolveTargetNotFoundError,
   SpecResolveTargetOutsideRootError,
-  SpecResolveUnsupportedTargetError,
   type SpecResolvePathFinder,
 } from './spec-resolver.js';
 
@@ -100,6 +101,40 @@ class MemoryFileSystem implements DirectoryCheckerDependency, FileExistenceDepen
   }
 }
 
+class PathFailureFileSystem extends MemoryFileSystem {
+  private readonly failingDirectoryPath: string | null;
+
+  private readonly failingExistencePath: string | null;
+
+  public constructor(
+    options: MemoryFileSystemOptions,
+    failures: {
+      readonly directoryPath?: string;
+      readonly existencePath?: string;
+    },
+  ) {
+    super(options);
+    this.failingDirectoryPath = failures.directoryPath ?? null;
+    this.failingExistencePath = failures.existencePath ?? null;
+  }
+
+  public override async exists(path: string): Promise<boolean> {
+    if (path === this.failingExistencePath) {
+      throw new Error('exists failed');
+    }
+
+    return super.exists(path);
+  }
+
+  public override async isDirectory(path: string): Promise<boolean> {
+    if (path === this.failingDirectoryPath) {
+      throw new Error('stat failed');
+    }
+
+    return super.isDirectory(path);
+  }
+}
+
 const rootDirectoryPath = resolve('/workspace/project');
 
 const specContent = (
@@ -167,7 +202,7 @@ const createResolver = (
 
 const baseFiles = (): Readonly<Record<string, string>> => {
   return {
-    [resolve(rootDirectoryPath, 'app.sdd')]: specContent('App', 'Own the application.', `Can modify:
+    [resolve(rootDirectoryPath, 'project.sdd')]: specContent('App', 'Own the application.', `Can modify:
   ./everything/**
 `),
     [resolve(rootDirectoryPath, 'feature', 'feature.sdd')]: specContent('Feature', 'Own feature behavior.', `Can read:
@@ -226,16 +261,17 @@ describe('SpecResolver', () => {
       sectionNames: [
         'Purpose',
       ],
+      targetDirectoryPath: resolve(rootDirectoryPath, 'feature'),
       targetPath: resolve(rootDirectoryPath, 'feature'),
     });
     expect(result.specs.map((spec) => spec.path)).toEqual([
-      'app.sdd',
       'feature/feature.sdd',
       'feature/local.sdd',
+      'project.sdd',
       'rooted/rooted.sdd',
       'shared/shared.sdd',
     ]);
-    expect(result.specs.find((spec) => 'app.sdd' === spec.path)?.reasons).toEqual([
+    expect(result.specs.find((spec) => 'project.sdd' === spec.path)?.reasons).toEqual([
       {
         directoryPath: '.',
         kind: 'parent',
@@ -260,13 +296,12 @@ describe('SpecResolver', () => {
     expect(result.specs.map((spec) => spec.path)).not.toContain('forbidden/forbidden.sdd');
     expect(result.specs.map((spec) => spec.path)).not.toContain('exposed/exposed.sdd');
     expect(result.root.children.map((child) => child.path)).toEqual([
-      'app.sdd',
       'feature',
       'rooted',
       'shared',
     ]);
     expect(fileSystem.readFilePaths).toEqual([
-      resolve(rootDirectoryPath, 'app.sdd'),
+      resolve(rootDirectoryPath, 'project.sdd'),
       resolve(rootDirectoryPath, 'feature', 'feature.sdd'),
       resolve(rootDirectoryPath, 'shared', 'shared.sdd'),
       resolve(rootDirectoryPath, 'rooted', 'rooted.sdd'),
@@ -297,18 +332,18 @@ describe('SpecResolver', () => {
       targetPath: resolve(rootDirectoryPath, 'feature'),
     });
     expect(result.specs.map((spec) => spec.path)).toEqual([
-      'app.sdd',
       'deep/deep.sdd',
       'everything/everything.sdd',
       'feature/feature.sdd',
       'feature/local.sdd',
+      'project.sdd',
       'rooted/rooted.sdd',
       'shared/shared.sdd',
     ]);
     expect(result.specs.find((spec) => 'everything/everything.sdd' === spec.path)?.reasons).toEqual([
       {
         depth: 2,
-        fromPath: 'app.sdd',
+        fromPath: 'project.sdd',
         kind: 'link',
         sectionName: 'Can modify',
         target: './everything/**',
@@ -335,10 +370,10 @@ describe('SpecResolver', () => {
     })).resolves.toMatchObject({
       specs: [
         {
-          path: 'app.sdd',
+          path: 'feature/feature.sdd',
         },
         {
-          path: 'feature/feature.sdd',
+          path: 'project.sdd',
         },
       ],
     });
@@ -398,9 +433,9 @@ References:
       'Must',
     ]);
     expect(result.specs.map((spec) => spec.path)).toEqual([
-      'app.sdd',
       'feature/feature.sdd',
       'feature/local.sdd',
+      'project.sdd',
       'rooted/rooted.sdd',
     ]);
     expect(result.specs.find((spec) => 'feature/feature.sdd' === spec.path)?.reasons).toEqual([
@@ -448,8 +483,8 @@ References:
     });
 
     expect(result.specs.map((spec) => spec.path)).toEqual([
-      'app.sdd',
       'feature/feature.sdd',
+      'project.sdd',
     ]);
     expect(result.specs.find((spec) => 'feature/feature.sdd' === spec.path)?.reasons).toEqual([
       {
@@ -462,7 +497,7 @@ References:
   it('uses a single lowercase directory spec match when exact case is absent', async () => {
     const reportDirectoryPath = resolve(rootDirectoryPath, 'Reports');
     const files = {
-      [resolve(rootDirectoryPath, 'app.sdd')]: specContent('App', 'Own the application.'),
+      [resolve(rootDirectoryPath, 'project.sdd')]: specContent('App', 'Own the application.'),
       [resolve(reportDirectoryPath, 'reports.sdd')]: specContent('Reports', 'Own report specs.'),
     };
     const { specResolver } = createResolver({
@@ -486,6 +521,120 @@ References:
         },
       ],
     });
+  });
+
+  it('includes parent-held and local directory specs as cumulative vertical context', async () => {
+    const barDirectoryPath = resolve(rootDirectoryPath, 'src', 'foo', 'bar');
+    const files = {
+      [resolve(rootDirectoryPath, 'src', 'foo', 'bar.sdd')]: specContent('Broad Bar', 'Govern bar broadly.'),
+      [resolve(barDirectoryPath, 'bar.sdd')]: specContent('Local Bar', 'Govern bar locally.'),
+    };
+    const { specResolver } = createResolver({
+      directories: [
+        rootDirectoryPath,
+        resolve(rootDirectoryPath, 'src'),
+        resolve(rootDirectoryPath, 'src', 'foo'),
+        barDirectoryPath,
+      ],
+      files,
+    });
+
+    const result = await specResolver.resolve({
+      linkDepth: 0,
+      rootDirectoryPath,
+      targetPath: barDirectoryPath,
+    });
+
+    expect(result.specs.map((spec) => [
+      spec.path,
+      spec.directoryLevel,
+      spec.reasons,
+    ])).toEqual([
+      [
+        'src/foo/bar.sdd',
+        true,
+        [
+          {
+            kind: 'target',
+          },
+        ],
+      ],
+      [
+        'src/foo/bar/bar.sdd',
+        true,
+        [
+          {
+            kind: 'target',
+          },
+        ],
+      ],
+    ]);
+    expect(result.root.children[0]).toMatchObject({
+      children: [
+        {
+          children: [
+            {
+              path: 'src/foo/bar',
+              spec: {
+                path: 'src/foo/bar.sdd',
+              },
+              specs: [
+                {
+                  path: 'src/foo/bar.sdd',
+                },
+                {
+                  path: 'src/foo/bar/bar.sdd',
+                },
+              ],
+            },
+          ],
+          path: 'src/foo',
+        },
+      ],
+      path: 'src',
+    });
+  });
+
+  it('includes parent-held directory specs when resolving explicit directory links', async () => {
+    const sharedDirectoryPath = resolve(rootDirectoryPath, 'shared');
+    const files = {
+      [resolve(rootDirectoryPath, 'project.sdd')]: specContent('App', 'Own the application.'),
+      [resolve(rootDirectoryPath, 'feature', 'feature.sdd')]: specContent('Feature', 'Own feature behavior.', `Structure:
+  ../shared
+`),
+      [resolve(rootDirectoryPath, 'shared.sdd')]: specContent('Broad Shared', 'Govern shared broadly.'),
+      [resolve(sharedDirectoryPath, 'shared.sdd')]: specContent('Local Shared', 'Govern shared locally.'),
+    };
+    const { specResolver } = createResolver({
+      directories: [
+        rootDirectoryPath,
+        resolve(rootDirectoryPath, 'feature'),
+        sharedDirectoryPath,
+      ],
+      files,
+    });
+
+    const result = await specResolver.resolve({
+      linkDepth: 1,
+      rootDirectoryPath,
+      targetPath: resolve(rootDirectoryPath, 'feature'),
+    });
+
+    expect(result.specs.map((spec) => spec.path)).toEqual([
+      'feature/feature.sdd',
+      'project.sdd',
+      'shared.sdd',
+      'shared/shared.sdd',
+    ]);
+    expect(result.specs.find((spec) => 'shared.sdd' === spec.path)?.reasons).toEqual([
+      {
+        depth: 1,
+        fromPath: 'feature/feature.sdd',
+        kind: 'link',
+        sectionName: 'Structure',
+        target: '../shared',
+      },
+    ]);
   });
 
   it('resolves an empty root context when no root-level spec exists', async () => {
@@ -532,11 +681,13 @@ References:
     ]);
   });
 
-  it('follows explicit non-glob directory links recursively', async () => {
+  it('follows explicit links wrapped in backticks and brackets', async () => {
     const files = {
       ...baseFiles(),
-      [resolve(rootDirectoryPath, 'feature', 'feature.sdd')]: specContent('Feature', 'Own feature behavior.', `Structure:
-  ../shared
+      [resolve(rootDirectoryPath, 'feature', 'feature.sdd')]: specContent('Feature', 'Own feature behavior.', `References:
+  \`./local.sdd\`
+  [../shared/shared.sdd]
+  {/rooted/rooted.sdd}
 `),
     };
     const { specResolver } = createResolver({
@@ -545,10 +696,70 @@ References:
     });
 
     const result = await specResolver.resolve({
+      linkDepth: 1,
       rootDirectoryPath,
       targetPath: resolve(rootDirectoryPath, 'feature'),
     });
 
+    expect(result.specs.map((spec) => spec.path)).toEqual([
+      'feature/feature.sdd',
+      'feature/local.sdd',
+      'project.sdd',
+      'rooted/rooted.sdd',
+      'shared/shared.sdd',
+    ]);
+    expect(result.specs.find((spec) => 'feature/local.sdd' === spec.path)?.reasons).toEqual([
+      {
+        depth: 1,
+        fromPath: 'feature/feature.sdd',
+        kind: 'link',
+        sectionName: 'References',
+        target: './local.sdd',
+      },
+    ]);
+    expect(result.specs.find((spec) => 'shared/shared.sdd' === spec.path)?.reasons).toEqual([
+      {
+        depth: 1,
+        fromPath: 'feature/feature.sdd',
+        kind: 'link',
+        sectionName: 'References',
+        target: '../shared/shared.sdd',
+      },
+    ]);
+    expect(result.specs.find((spec) => 'rooted/rooted.sdd' === spec.path)?.reasons).toEqual([
+      {
+        depth: 1,
+        fromPath: 'feature/feature.sdd',
+        kind: 'link',
+        sectionName: 'References',
+        target: '/rooted/rooted.sdd',
+      },
+    ]);
+  });
+
+  it('resolves explicit non-glob directory links to directory-level specs only', async () => {
+    const files = {
+      ...baseFiles(),
+      [resolve(rootDirectoryPath, 'feature', 'feature.sdd')]: specContent('Feature', 'Own feature behavior.', `Structure:
+  ../shared
+`),
+      [resolve(rootDirectoryPath, 'shared', 'nested', 'nested.sdd')]: specContent('Nested Shared', 'Should require a glob link.'),
+    };
+    const { specResolver } = createResolver({
+      directories: [
+        ...baseDirectories(),
+        resolve(rootDirectoryPath, 'shared', 'nested'),
+      ],
+      files,
+    });
+
+    const result = await specResolver.resolve({
+      linkDepth: 1,
+      rootDirectoryPath,
+      targetPath: resolve(rootDirectoryPath, 'feature'),
+    });
+
+    expect(result.specs.map((spec) => spec.path)).not.toContain('shared/nested/nested.sdd');
     expect(result.specs.find((spec) => 'shared/shared.sdd' === spec.path)?.reasons).toEqual([
       {
         depth: 1,
@@ -560,9 +771,60 @@ References:
     ]);
   });
 
+  it('follows explicit ordinary file links to same-basename specs', async () => {
+    const files = {
+      ...baseFiles(),
+      [resolve(rootDirectoryPath, 'feature', 'feature.sdd')]: specContent('Feature', 'Own feature behavior.', `Can modify:
+  ./local.ts
+Can read:
+  /shared/shared.ts
+References:
+  ./notes.txt
+`),
+      [resolve(rootDirectoryPath, 'feature', 'local.ts')]: 'export {};\n',
+      [resolve(rootDirectoryPath, 'feature', 'notes.txt')]: 'no matching spec\n',
+      [resolve(rootDirectoryPath, 'shared', 'shared.ts')]: 'export {};\n',
+    };
+    const { specResolver } = createResolver({
+      directories: baseDirectories(),
+      files,
+    });
+
+    const result = await specResolver.resolve({
+      linkDepth: 1,
+      rootDirectoryPath,
+      targetPath: resolve(rootDirectoryPath, 'feature'),
+    });
+
+    expect(result.specs.map((spec) => spec.path)).toEqual([
+      'feature/feature.sdd',
+      'feature/local.sdd',
+      'project.sdd',
+      'shared/shared.sdd',
+    ]);
+    expect(result.specs.find((spec) => 'feature/local.sdd' === spec.path)?.reasons).toEqual([
+      {
+        depth: 1,
+        fromPath: 'feature/feature.sdd',
+        kind: 'link',
+        sectionName: 'Can modify',
+        target: './local.ts',
+      },
+    ]);
+    expect(result.specs.find((spec) => 'shared/shared.sdd' === spec.path)?.reasons).toEqual([
+      {
+        depth: 1,
+        fromPath: 'feature/feature.sdd',
+        kind: 'link',
+        sectionName: 'Can read',
+        target: '/shared/shared.ts',
+      },
+    ]);
+  });
+
   it('ignores unprefixed, remote, outside-root, and non-spec links', async () => {
     const files = {
-      [resolve(rootDirectoryPath, 'app.sdd')]: specContent('App', 'Own the application.'),
+      [resolve(rootDirectoryPath, 'project.sdd')]: specContent('App', 'Own the application.'),
       [resolve(rootDirectoryPath, 'feature', 'feature.sdd')]: specContent('Feature', 'Own feature behavior.', `References:
   shared/shared.sdd
   https://specdd.ai/docs
@@ -589,15 +851,15 @@ References:
     });
 
     expect(result.specs.map((spec) => spec.path)).toEqual([
-      'app.sdd',
       'feature/feature.sdd',
+      'project.sdd',
     ]);
   });
 
   it('raises for ambiguous directory specs discovered through linked context', async () => {
     const billingDirectoryPath = resolve(rootDirectoryPath, 'Billing');
     const files = {
-      [resolve(rootDirectoryPath, 'app.sdd')]: specContent('App', 'Own the application.', `References:
+      [resolve(rootDirectoryPath, 'project.sdd')]: specContent('App', 'Own the application.', `References:
   ./Billing/**
 `),
       [resolve(billingDirectoryPath, 'BILLING.sdd')]: specContent('Upper Billing', 'Own billing.'),
@@ -619,8 +881,9 @@ References:
   it('uses fast-glob for default spec path discovery', async () => {
     const temporaryRootDirectoryPath = await mkdtemp(join(tmpdir(), 'spec-resolver-'));
     const featureDirectoryPath = resolve(temporaryRootDirectoryPath, 'feature');
+    const rootSpecName = `${basename(temporaryRootDirectoryPath)}.sdd`;
     const files = {
-      [resolve(temporaryRootDirectoryPath, 'app.sdd')]: specContent('App', 'Own the application.'),
+      [resolve(temporaryRootDirectoryPath, rootSpecName)]: specContent('App', 'Own the application.'),
       [resolve(featureDirectoryPath, 'feature.sdd')]: specContent('Feature', 'Own feature behavior.'),
     };
 
@@ -651,10 +914,10 @@ References:
       })).resolves.toMatchObject({
         specs: [
           {
-            path: 'app.sdd',
+            path: 'feature/feature.sdd',
           },
           {
-            path: 'feature/feature.sdd',
+            path: rootSpecName,
           },
         ],
       });
@@ -668,7 +931,7 @@ References:
 
   it('normalizes relative spec paths returned by discovery', async () => {
     const files = {
-      [resolve(rootDirectoryPath, 'app.sdd')]: specContent('App', 'Own the application.'),
+      [resolve(rootDirectoryPath, 'project.sdd')]: specContent('App', 'Own the application.'),
     };
     const { specResolver } = createResolver({
       directories: [
@@ -676,7 +939,7 @@ References:
       ],
       files,
     }, async () => [
-      'app.sdd',
+      'project.sdd',
     ]);
 
     await expect(specResolver.resolve({
@@ -685,13 +948,86 @@ References:
     })).resolves.toMatchObject({
       specs: [
         {
-          path: 'app.sdd',
+          path: 'project.sdd',
         },
       ],
     });
   });
 
-  it('raises for missing, unsupported, and outside-root targets', async () => {
+  it('accepts ordinary file targets with same-basename specs', async () => {
+    const targetFilePath = resolve(rootDirectoryPath, 'feature', 'local.ts');
+    const files = {
+      ...baseFiles(),
+      [targetFilePath]: 'export {};\n',
+    };
+    const { specResolver } = createResolver({
+      directories: baseDirectories(),
+      files,
+    });
+
+    const result = await specResolver.resolve({
+      linkDepth: 0,
+      rootDirectoryPath,
+      targetPath: targetFilePath,
+    });
+
+    expect(result.specs.map((spec) => spec.path)).toEqual([
+      'feature/feature.sdd',
+      'feature/local.sdd',
+      'project.sdd',
+    ]);
+    expect(result.targetDirectoryPath).toBe(resolve(rootDirectoryPath, 'feature'));
+    expect(result.specs.find((spec) => 'feature/local.sdd' === spec.path)?.reasons).toEqual([
+      {
+        kind: 'target',
+      },
+    ]);
+  });
+
+  it('accepts ordinary file targets without same-basename specs', async () => {
+    const targetFilePath = resolve(rootDirectoryPath, 'feature', 'missing-spec.ts');
+    const files = {
+      ...baseFiles(),
+      [targetFilePath]: 'export {};\n',
+    };
+    const { specResolver } = createResolver({
+      directories: baseDirectories(),
+      files,
+    });
+
+    const result = await specResolver.resolve({
+      linkDepth: 0,
+      rootDirectoryPath,
+      targetPath: targetFilePath,
+    });
+
+    expect(result.specs.map((spec) => spec.path)).toEqual([
+      'feature/feature.sdd',
+      'project.sdd',
+    ]);
+    expect(result.targetDirectoryPath).toBe(resolve(rootDirectoryPath, 'feature'));
+  });
+
+  it('raises when ordinary file target specs are ambiguous', async () => {
+    const targetFilePath = resolve(rootDirectoryPath, 'Feature.ts');
+    const files = {
+      [targetFilePath]: 'export {};\n',
+      [resolve(rootDirectoryPath, 'FEATURE.sdd')]: specContent('Upper Feature', 'Upper feature.'),
+      [resolve(rootDirectoryPath, 'feature.sdd')]: specContent('Lower Feature', 'Lower feature.'),
+    };
+
+    await expect(createResolver({
+      directories: [
+        rootDirectoryPath,
+      ],
+      files,
+    }).specResolver.resolve({
+      rootDirectoryPath,
+      targetPath: targetFilePath,
+    })).rejects.toBeInstanceOf(SpecResolveAmbiguousTargetSpecError);
+  });
+
+  it('raises for missing and outside-root targets', async () => {
     await expect(createResolver({
       directories: [],
       files: {},
@@ -725,17 +1061,6 @@ References:
       rootDirectoryPath,
       targetPath: resolve('/workspace/other'),
     })).rejects.toBeInstanceOf(SpecResolveTargetOutsideRootError);
-    await expect(createResolver({
-      directories: [
-        rootDirectoryPath,
-      ],
-      files: {
-        [resolve(rootDirectoryPath, 'notes.txt')]: 'notes',
-      },
-    }).specResolver.resolve({
-      rootDirectoryPath,
-      targetPath: resolve(rootDirectoryPath, 'notes.txt'),
-    })).rejects.toBeInstanceOf(SpecResolveUnsupportedTargetError);
   });
 
   it('raises for ambiguous directory specs, discovery failures, and parse failures', async () => {
@@ -747,7 +1072,7 @@ References:
         ambiguousDirectoryPath,
       ],
       files: {
-        [resolve(rootDirectoryPath, 'app.sdd')]: specContent('App', 'Own the application.'),
+        [resolve(rootDirectoryPath, 'project.sdd')]: specContent('App', 'Own the application.'),
         [resolve(ambiguousDirectoryPath, 'BILLING.sdd')]: specContent('Upper Billing', 'Own billing.'),
         [resolve(ambiguousDirectoryPath, 'billing.sdd')]: specContent('Lower Billing', 'Own billing.'),
       },
@@ -764,6 +1089,80 @@ References:
       rootDirectoryPath,
       targetPath: rootDirectoryPath,
     })).rejects.toThrow(SpecResolveDiscoveryError);
+
+    const linkedSpecPath = resolve(rootDirectoryPath, 'linked.sdd');
+    const linkedFilePath = resolve(rootDirectoryPath, 'linked');
+    const linkedFiles = {
+      [resolve(rootDirectoryPath, 'project.sdd')]: specContent('App', 'Own the application.', `References:
+  ./linked.sdd
+`),
+    };
+    const linkedExistenceFailureFileSystem = new PathFailureFileSystem({
+      directories: [
+        rootDirectoryPath,
+      ],
+      files: linkedFiles,
+    }, {
+      existencePath: linkedSpecPath,
+    });
+
+    await expect(new SpecResolver(
+      linkedExistenceFailureFileSystem,
+      new SpecParser(linkedExistenceFailureFileSystem),
+      createPathFinder(linkedFiles),
+    ).resolve({
+      rootDirectoryPath,
+      targetPath: rootDirectoryPath,
+    })).rejects.toThrow(SpecResolveDiscoveryError);
+
+    const linkedDirectoryFiles = {
+      [resolve(rootDirectoryPath, 'project.sdd')]: specContent('App', 'Own the application.', `References:
+  ./linked
+`),
+      [linkedFilePath]: 'linked file',
+    };
+    const linkedDirectoryFailureFileSystem = new PathFailureFileSystem({
+      directories: [
+        rootDirectoryPath,
+      ],
+      existingPaths: [
+        linkedFilePath,
+      ],
+      files: linkedDirectoryFiles,
+    }, {
+      directoryPath: linkedFilePath,
+    });
+
+    await expect(new SpecResolver(
+      linkedDirectoryFailureFileSystem,
+      new SpecParser(linkedDirectoryFailureFileSystem),
+      createPathFinder(linkedDirectoryFiles),
+    ).resolve({
+      rootDirectoryPath,
+      targetPath: rootDirectoryPath,
+    })).rejects.toThrow(SpecResolveDiscoveryError);
+
+    const directoryContextFailureFiles = {
+      [resolve(rootDirectoryPath, 'project.sdd')]: specContent('App', 'Own the application.'),
+    };
+    const directoryContextFailureFileSystem = new PathFailureFileSystem({
+      directories: [
+        rootDirectoryPath,
+      ],
+      files: directoryContextFailureFiles,
+    }, {
+      existencePath: resolve(rootDirectoryPath, 'project'),
+    });
+
+    await expect(new SpecResolver(
+      directoryContextFailureFileSystem,
+      new SpecParser(directoryContextFailureFileSystem),
+      createPathFinder(directoryContextFailureFiles),
+    ).resolve({
+      rootDirectoryPath,
+      targetPath: rootDirectoryPath,
+    })).rejects.toThrow(SpecResolveDiscoveryError);
+
     await expect(createResolver({
       directories: [
         rootDirectoryPath,
@@ -781,18 +1180,18 @@ References:
         rootDirectoryPath,
       ],
       files: {
-        [resolve(rootDirectoryPath, 'app.sdd')]: 'Purpose:\n  Missing Spec first.\n',
+        [resolve(rootDirectoryPath, 'project.sdd')]: 'Purpose:\n  Missing Spec first.\n',
       },
     }).specResolver.resolve({
       rootDirectoryPath,
       targetPath: rootDirectoryPath,
-    })).rejects.toThrow('Failed to parse SpecDD spec app.sdd');
+    })).rejects.toThrow('Failed to parse SpecDD spec project.sdd');
     await expect(createResolver({
       directories: [
         rootDirectoryPath,
       ],
       files: {
-        [resolve(rootDirectoryPath, 'app.sdd')]: specContent('App', 'Own the application.'),
+        [resolve(rootDirectoryPath, 'project.sdd')]: specContent('App', 'Own the application.'),
       },
     }, async () => {
       throw new Error('glob failed');

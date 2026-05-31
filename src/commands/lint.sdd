@@ -21,11 +21,12 @@ Must:
   Accept an optional target path argument.
   Resolve a missing target path to the current working directory.
   Resolve a relative target path against the current working directory.
-  Pass an absolute target path through as the target directory.
+  Pass an absolute target path through as the target path.
+  Pass the current working directory as the preferred root directory.
   Accept --format text and --format json.
   Default output format to text.
   Reject unsupported output formats.
-  Call @SpecLinter.lint with the resolved target directory.
+  Call @SpecLinter.lint with the resolved target path and preferred root directory.
   Render deterministic text output for humans.
   Render text output as file path blocks for specs with diagnostics.
   Omit specs without diagnostics from text output.
@@ -33,6 +34,7 @@ Must:
   Render a summary containing error count, warning count, and checked file count.
   Render compact JSON output for machine consumers.
   Render compact JSON output as directory blocks containing specs and diagnostics instead of sections.
+  Include root directory path, target path, and target directory path in compact JSON output.
   Set the process exit code to 1 when lint errors are present.
   Do not set a failure exit code when lint has no errors.
   Write rendered output to stdout.

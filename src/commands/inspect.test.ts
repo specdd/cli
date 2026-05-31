@@ -1,6 +1,9 @@
 import { jest } from '@jest/globals';
 import type { Command } from 'commander';
-import type { SpecSection } from '../services/spec-parser/spec-parser.js';
+import {
+  SPEC_SECTION_NAMES,
+  type SpecSection,
+} from '../services/spec-parser/spec-parser.js';
 import type {
   SpecTreeRequest,
   SpecTreeResult,
@@ -59,14 +62,27 @@ const createSpecTreeResult = (): SpecTreeResult => {
   const billingPurpose = section('Purpose', 'Own billing workflows.');
   const invoicePurpose = section('Purpose', 'Own invoices.\nValidate totals.');
   const scenario = section('Scenario', 'Given invoice input', 'valid invoice');
+  const billingSpec = {
+    directoryLevel: true,
+    name: 'billing.sdd',
+    path: 'billing/billing.sdd',
+    sections: {
+      Purpose: [
+        billingPurpose,
+      ],
+      Scenario: [],
+    },
+    title: 'Billing',
+    type: 'spec' as const,
+  };
 
   return {
     root: {
       children: [
         {
           directoryLevel: false,
-          name: 'app.sdd',
-          path: 'app.sdd',
+          name: 'project.sdd',
+          path: 'project.sdd',
           sections: {
             Purpose: [],
             Scenario: [],
@@ -94,33 +110,27 @@ const createSpecTreeResult = (): SpecTreeResult => {
           ],
           name: 'billing',
           path: 'billing',
-          spec: {
-            directoryLevel: true,
-            name: 'billing.sdd',
-            path: 'billing/billing.sdd',
-            sections: {
-              Purpose: [
-                billingPurpose,
-              ],
-              Scenario: [],
-            },
-            title: 'Billing',
-            type: 'spec',
-          },
+          spec: billingSpec,
+          specs: [
+            billingSpec,
+          ],
           type: 'directory',
         },
       ],
       name: 'project',
       path: '.',
       spec: null,
+      specs: [],
       type: 'directory',
     },
+    rootDirectoryPath: '/project',
     sectionNames: [
       'Purpose',
       'Scenario',
     ],
     specs: [],
     targetDirectoryPath: '/project',
+    targetPath: '/project',
   };
 };
 
@@ -148,9 +158,9 @@ describe('inspect command', () => {
     const help = renderHelp(command);
 
     expect(command.description()).toBe('Inspect SpecDD spec files and selected sections.');
-    expect(pathArgument?.description).toBe('Directory to inspect. Defaults to the current directory.');
-    expect(sectionOption?.description).toBe('Section to include. May be repeated.');
-    expect(sectionsOption?.description).toBe('Comma-separated sections to include.');
+    expect(pathArgument?.description).toBe('Directory, .sdd file, or ordinary file to inspect. Defaults to the current directory.');
+    expect(sectionOption?.description).toBe('Section to include, or all. May be repeated.');
+    expect(sectionsOption?.description).toBe('Comma-separated sections to include, or all.');
     expect(formatOption?.description).toBe('Output format: text, json, or json-extended.');
     expect(formatOption?.defaultValue).toBe('text');
     expect(help).toContain('Copyright (c) 2026 Matīss Treinis and SpecDD contributors');
@@ -176,6 +186,10 @@ describe('inspect command', () => {
       'Must',
       'Tasks',
     ]);
+    expect(resolveInspectSectionNames([], 'all')).toEqual(SPEC_SECTION_NAMES);
+    expect(resolveInspectSectionNames([
+      'all',
+    ], undefined)).toEqual(SPEC_SECTION_NAMES);
   });
 
   it('resolves and rejects output formats', () => {
@@ -187,7 +201,7 @@ describe('inspect command', () => {
 
   it('renders a human-readable text tree', () => {
     expect(renderInspect(createSpecTreeResult(), 'text')).toBe(`/
-  app.sdd
+  project.sdd
 
 /billing/
   billing.sdd
@@ -199,6 +213,76 @@ describe('inspect command', () => {
       Validate totals.
     Scenario: valid invoice
       Given invoice input
+`);
+  });
+
+  it('uses full spec paths when directory specs share a file name', () => {
+    const broadSpec = {
+      directoryLevel: true,
+      name: 'bar.sdd',
+      path: 'foo/bar.sdd',
+      sections: {
+        Purpose: [
+          section('Purpose', 'Govern bar broadly.'),
+        ],
+      },
+      title: 'Broad Bar',
+      type: 'spec' as const,
+    };
+    const localSpec = {
+      directoryLevel: true,
+      name: 'bar.sdd',
+      path: 'foo/bar/bar.sdd',
+      sections: {
+        Purpose: [
+          section('Purpose', 'Govern bar locally.'),
+        ],
+      },
+      title: 'Local Bar',
+      type: 'spec' as const,
+    };
+    const result: SpecTreeResult = {
+      ...createSpecTreeResult(),
+      root: {
+        children: [
+          {
+            children: [
+              {
+                children: [],
+                name: 'bar',
+                path: 'foo/bar',
+                spec: broadSpec,
+                specs: [
+                  broadSpec,
+                  localSpec,
+                ],
+                type: 'directory',
+              },
+            ],
+            name: 'foo',
+            path: 'foo',
+            spec: null,
+            specs: [],
+            type: 'directory',
+          },
+        ],
+        name: 'project',
+        path: '.',
+        spec: null,
+        specs: [],
+        type: 'directory',
+      },
+    };
+
+    expect(renderInspect(result, 'text')).toBe(`/
+
+/foo/bar/
+  foo/bar.sdd
+    Purpose:
+      Govern bar broadly.
+  foo/bar/bar.sdd
+    Purpose:
+      Govern bar locally.
 `);
   });
 
@@ -252,6 +336,7 @@ describe('inspect command', () => {
         name: 'project',
         path: '.',
         spec: null,
+        specs: [],
         type: 'directory',
       },
       sectionNames: [
@@ -301,12 +386,14 @@ describe('inspect command', () => {
                 name: 'child',
                 path: 'parent/child',
                 spec: null,
+                specs: [],
                 type: 'directory',
               },
             ],
             name: 'parent',
             path: 'parent',
             spec: null,
+            specs: [],
             type: 'directory',
           },
         ],
@@ -336,8 +423,8 @@ describe('inspect command', () => {
           specs: [
             {
               directoryLevel: false,
-              name: 'app.sdd',
-              path: 'app.sdd',
+              name: 'project.sdd',
+              path: 'project.sdd',
               sections: {
                 Purpose: [],
                 Scenario: [],
@@ -392,11 +479,13 @@ describe('inspect command', () => {
           ],
         },
       ],
+      rootDirectoryPath: '/project',
       sectionNames: [
         'Purpose',
         'Scenario',
       ],
       targetDirectoryPath: '/project',
+      targetPath: '/project',
     });
     expect(renderedJson).not.toContain('lineNumber');
     expect(renderedJson).not.toContain('entries');
@@ -436,7 +525,8 @@ describe('inspect command', () => {
 
     expect(specTree.requests).toEqual([
       {
-        targetDirectoryPath: '/project',
+        rootDirectoryPath: '/project',
+        targetPath: '/project',
       },
     ]);
     expect(output.join('').startsWith('/\n')).toBe(true);
@@ -465,16 +555,40 @@ describe('inspect command', () => {
 
     expect(specTree.requests).toEqual([
       {
+        rootDirectoryPath: '/project',
         sectionNames: [
           'Purpose',
           'Must',
           'Tasks',
           'Scenario',
         ],
-        targetDirectoryPath: '/project/src',
+        targetPath: '/project/src',
       },
     ]);
     expect(JSON.parse(output.join('')).directories[0].path).toBe('/');
+  });
+
+  it('calls spec tree with all section names when requested', async () => {
+    const specTree = new FakeSpecTree();
+    const output: string[] = [];
+    const command = createInspectCommand(createContainer(specTree), () => '/project', (message) => {
+      output.push(message);
+    });
+
+    await command.parseAsync([
+      '--sections',
+      'all',
+    ], {
+      from: 'user',
+    });
+
+    expect(specTree.requests).toEqual([
+      {
+        rootDirectoryPath: '/project',
+        sectionNames: SPEC_SECTION_NAMES,
+        targetPath: '/project',
+      },
+    ]);
   });
 
   it('calls spec tree with extended JSON output', async () => {
@@ -518,7 +632,8 @@ describe('inspect command', () => {
 
     expect(specTree.requests).toEqual([
       {
-        targetDirectoryPath: '/project',
+        rootDirectoryPath: '/project',
+        targetPath: '/project',
       },
     ]);
   });

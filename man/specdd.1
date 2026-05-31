@@ -1,4 +1,4 @@
-.TH SPECDD 1 "May 2026" "specdd 1.1.0" "SpecDD CLI Manual"
+.TH SPECDD 1 "May 2026" "specdd 1.1.1" "SpecDD CLI Manual"
 .SH NAME
 specdd \- command-line tool for SpecDD workflows
 .SH SYNOPSIS
@@ -99,29 +99,53 @@ are installed.
 .B inspect [path]
 Discover
 .B .sdd
-files under a directory and print selected sections in a tree-shaped
+files for a target path and print selected sections in a tree-shaped
 report. If
 .I path
-is omitted, the current directory is inspected.
+is omitted, the current directory is inspected. The target may be a
+directory, a
+.B .sdd
+file, or an ordinary file, and must exist.
+Root-level project specs follow the containing directory basename
+convention.
+Directory blocks include parent-held directory specs such as
+.B src/foo/bar.sdd
+and local directory specs such as
+.B src/foo/bar/bar.sdd
+when both govern the same directory.
 .TP
 .B resolve target
 Resolve specs relevant to
 .IR target ,
 where
 .I target
-is a directory or a
+is a directory,
 .B .sdd
-file. Resolution always includes vertical directory context from the
+file, or ordinary file. The target must exist. Resolution always
+includes vertical directory context from the
 target up to the root, and then expands soft links from the target and
 nearby parent context specs.
+Non-glob directory links resolve to directory-level specs for that
+directory; use a glob to include descendant specs.
+Ordinary file targets use a same-basename
+.B .sdd
+file as the target anchor when present.
+Vertical context uses the same cumulative parent-held and local
+directory spec layout as
+.BR inspect .
 .TP
 .B lint [path]
 Lint
 .B .sdd
-files under a directory. If
+files for a target path. If
 .I path
-is omitted, the current directory is linted. Text output prints only
-files with diagnostics.
+is omitted, the current directory is linted. The target may be a
+directory, a
+.B .sdd
+file, or an ordinary file, and must exist. Text output prints only files
+with diagnostics.
+Lint JSON uses the same cumulative directory spec layout as
+.BR inspect .
 .SH COMMON OPTIONS
 .TP
 .B -h, --help
@@ -147,11 +171,16 @@ Install a specific Agent Skills release tag.
 .SH INSPECT OPTIONS
 .TP
 .BI --section " name"
-Include a section by name. May be repeated.
+Include a section by name, or
+.BR all .
+May be repeated.
 .TP
 .BI --sections " names"
 Include comma-separated section names, for example
 .BR Purpose,Must,Tasks .
+Use
+.B all
+to include every SpecDD section present in each spec.
 .TP
 .BI --format " format"
 Set output format. Supported values are
@@ -172,10 +201,14 @@ paths in specs are resolved from this root. The default is the current
 directory.
 .TP
 .BI --section " name"
-Include a section by name. May be repeated.
+Include a section by name, or
+.BR all .
+May be repeated.
 .TP
 .BI --sections " names"
-Include comma-separated section names.
+Include comma-separated section names, or
+.B all
+to include every SpecDD section present in each spec.
 .TP
 .BI --depth " depth"
 Control how far

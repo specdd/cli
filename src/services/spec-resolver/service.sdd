@@ -14,9 +14,11 @@ References:
   ../../cli-error.sdd
   ../../infrastructure/file-system.sdd
   ../spec-parser/service.sdd
+  ../spec-target-context/service.sdd
 
 Must:
   Accept @FileSystem and @SpecParser through constructor parameters.
+  Accept @SpecTargetContext through constructor parameters.
   Expose @SpecResolver.resolve for the resolve command flow.
   Accept a root directory path, target path, optional section names, and soft-link depth.
   Default requested sections to Purpose when no section names are provided.
@@ -25,23 +27,33 @@ Must:
   Validate that the root path is a directory.
   Validate that the target path exists.
   Validate that the target path is inside the root directory.
+  Use @SpecTargetContext for root/target validation, same-basename target spec lookup, path normalization, and directory-level context matching.
   Accept a target that is a directory.
   Accept a target that is a .sdd spec file.
-  Reject non-directory, non-.sdd targets.
+  Accept a target that is an ordinary file.
+  Include a same-basename .sdd file for an ordinary file target when one exists.
+  Treat same-basename ordinary file target specs as case-insensitive matches, preferring exact filename matches.
+  Continue upward directory context resolution when an ordinary file target has no same-basename spec.
   Include directory-level specs from the target path upward to the root.
-  Treat a .sdd file whose basename exactly matches its containing directory basename as the directory-level spec.
-  Treat a .sdd file whose lowercase basename matches its containing directory lowercase basename as the directory-level spec when no exact match exists.
-  Treat app.sdd as the root directory context spec when the root directory has no basename match.
-  Report ambiguous lowercase directory-level spec matches as errors.
+  Treat a .sdd file inside a directory whose basename exactly matches the directory basename as a local directory-level spec.
+  Treat a .sdd file in a parent directory whose basename exactly matches a child directory basename as a parent-held directory-level spec.
+  Treat lowercase basename matches as directory-level specs when no exact match exists for that placement.
+  Treat parent-held and local directory-level specs for the same directory as cumulative context.
+  Return parent-held directory-level specs before local directory-level specs for the same directory.
+  Treat the root directory basename match as the root directory context spec.
+  Report ambiguous lowercase directory-level spec matches per placement as errors.
   Include the target spec file when the target is a .sdd file.
   Use the target spec file or target directory-level spec as the soft-link expansion anchor when available.
   Follow soft links from Owns, Can modify, Can read, References, Depends on, and Structure sections.
   Do not follow soft links from Forbids, Exposes, Must, Must not, Purpose, Handles, Tasks, Scenario, or Example sections.
   Follow only explicit local path references that begin with ./, ../, or /.
+  Follow explicit path references when surrounded by common inline delimiters such as backticks, brackets, braces, or parentheses.
   Resolve ./ and ../ paths relative to the declaring spec file directory.
   Resolve / paths relative to the requested root directory.
   Follow glob patterns exactly and include matched .sdd files.
-  Include all .sdd files under a linked directory when the link is a non-glob directory path.
+  Follow explicit ordinary file links to same-basename .sdd specs when present.
+  Resolve non-glob directory links to the directory-level specs for that directory.
+  Require glob links to include descendant .sdd files under a linked directory.
   Ignore linked paths that resolve outside the root directory.
   Deduplicate specs by normalized path relative to the root directory.
   Recursively expand soft links with cycle protection up to the requested depth.
@@ -51,6 +63,7 @@ Must:
   Treat numeric depth above 2 as including the next parent context level for each additional depth.
   Treat depth all as recursive soft-link expansion until exhausted.
   Return resolved specs with reasons that describe whether each spec was linked by target, parent, or a soft link.
+  Return the resolved target directory path.
   Return a directory tree containing only resolved specs.
   Return compact section lookups for requested sections.
 
@@ -69,6 +82,7 @@ Depends on:
   @CliError
   @FileSystem
   @SpecParser
+  @SpecTargetContext
   fast-glob
 
 Exposes:
@@ -91,7 +105,7 @@ Raises:
   @SpecResolveRootNotDirectoryError
   @SpecResolveTargetNotFoundError
   @SpecResolveTargetOutsideRootError
-  @SpecResolveUnsupportedTargetError
+  @SpecResolveAmbiguousTargetSpecError
   @SpecResolveAmbiguousDirectorySpecError
   @SpecResolveDiscoveryError
   @SpecResolveParseError
@@ -99,13 +113,18 @@ Raises:
 Handles:
   target directory
   target .sdd file
+  target ordinary file with same-basename spec
+  target ordinary file without same-basename spec
   target outside root
   missing target
   missing root
-  exact directory-level spec match
-  lowercase directory-level spec match
-  root app.sdd context match
+  exact local directory-level spec match
+  exact parent-held directory-level spec match
+  lowercase local directory-level spec match
+  lowercase parent-held directory-level spec match
+  root basename context match
   ambiguous lowercase directory-level spec match
+  ambiguous lowercase ordinary file target spec match
   vertical parent context
   direct soft links
   recursive soft links
@@ -118,5 +137,8 @@ Handles:
   relative paths
   glob paths
   linked directories
+  linked ordinary file with same-basename spec
+  linked ordinary file without same-basename spec
+  cumulative parent-held and local directory-level specs
   unsupported unprefixed path text
   ignored Forbids and Exposes references

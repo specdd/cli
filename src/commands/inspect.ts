@@ -8,7 +8,10 @@ import type {
   SpecTreeResult,
   SpecTreeSpecNode,
 } from '../services/spec-tree/spec-tree.js';
-import type { SpecSection } from '../services/spec-parser/spec-parser.js';
+import {
+  SPEC_SECTION_NAMES,
+  type SpecSection,
+} from '../services/spec-parser/spec-parser.js';
 
 type SpecTreeDependency = Pick<SpecTree, 'build'>;
 
@@ -48,8 +51,10 @@ type InspectCompactDirectory = {
 
 type InspectCompactResult = {
   readonly directories: readonly InspectCompactDirectory[];
+  readonly rootDirectoryPath: string;
   readonly sectionNames: readonly string[];
   readonly targetDirectoryPath: string;
+  readonly targetPath: string;
 };
 
 export class InspectInvalidFormatError extends CliError {
@@ -86,6 +91,10 @@ export const resolveInspectSectionNames = (
     return undefined;
   }
 
+  if (sectionNames.some((sectionName) => 'all' === sectionName)) {
+    return SPEC_SECTION_NAMES;
+  }
+
   return sectionNames;
 };
 
@@ -116,8 +125,10 @@ export const resolveInspectOutputFormat = (format: string): InspectOutputFormat 
 const compactInspectResult = (result: SpecTreeResult): InspectCompactResult => {
   return {
     directories: compactInspectDirectories(result.root),
+    rootDirectoryPath: result.rootDirectoryPath,
     sectionNames: result.sectionNames,
     targetDirectoryPath: result.targetDirectoryPath,
+    targetPath: result.targetPath,
   };
 };
 
@@ -141,18 +152,17 @@ const compactInspectDirectories = (
 };
 
 const compactInspectDirectory = (node: SpecTreeDirectoryNode): InspectCompactDirectory | null => {
+  const directorySpecs = inspectDirectorySpecs(node);
   const specChildren = node.children.filter((child): child is SpecTreeSpecNode => 'spec' === child.type);
 
-  if ('.' !== node.path && null === node.spec && 0 === specChildren.length) {
+  if ('.' !== node.path && 0 === directorySpecs.length && 0 === specChildren.length) {
     return null;
   }
 
   return {
     path: renderInspectDirectoryPath(node),
     specs: [
-      ...(null === node.spec ? [] : [
-        compactInspectSpec(node.spec),
-      ]),
+      ...directorySpecs.map((spec) => compactInspectSpec(spec)),
       ...specChildren.map((child) => compactInspectSpec(child)),
     ],
   };
@@ -210,16 +220,20 @@ const renderInspectDirectoryBlocks = (
 };
 
 const renderInspectDirectoryBlock = (node: SpecTreeDirectoryNode): string | null => {
+  const directorySpecs = inspectDirectorySpecs(node);
   const specChildren = node.children.filter((child): child is SpecTreeSpecNode => 'spec' === child.type);
+  const specs = [
+    ...directorySpecs,
+    ...specChildren,
+  ];
 
-  if ('.' !== node.path && null === node.spec && 0 === specChildren.length) {
+  if ('.' !== node.path && 0 === specs.length) {
     return null;
   }
 
   return [
     renderInspectDirectoryPath(node),
-    ...(null === node.spec ? [] : renderInspectSpec(node.spec, 1)),
-    ...specChildren.flatMap((child) => renderInspectSpec(child, 1)),
+    ...renderInspectSpecs(specs, 1),
   ].join('\n');
 };
 
@@ -231,11 +245,38 @@ const renderInspectDirectoryPath = (node: SpecTreeDirectoryNode): string => {
   return `/${node.path.split(posix.sep).join('/')}/`;
 };
 
-const renderInspectSpec = (node: SpecTreeSpecNode, depth: number): string[] => {
+const renderInspectSpecs = (specs: readonly SpecTreeSpecNode[], depth: number): string[] => {
+  const duplicateNames = duplicateSpecNames(specs);
+
+  return specs.flatMap((spec) => renderInspectSpec(spec, depth, duplicateNames.has(spec.name)));
+};
+
+const renderInspectSpec = (node: SpecTreeSpecNode, depth: number, usePathLabel: boolean): string[] => {
   return [
-    `${indent(depth)}${node.name}`,
+    `${indent(depth)}${usePathLabel ? node.path : node.name}`,
     ...renderInspectSpecSections(node, depth + 1),
   ];
+};
+
+const duplicateSpecNames = (specs: readonly SpecTreeSpecNode[]): ReadonlySet<string> => {
+  const seenNames = new Set<string>();
+  const duplicateNames = new Set<string>();
+
+  for (const spec of specs) {
+    if (seenNames.has(spec.name)) {
+      duplicateNames.add(spec.name);
+
+      continue;
+    }
+
+    seenNames.add(spec.name);
+  }
+
+  return duplicateNames;
+};
+
+const inspectDirectorySpecs = (node: SpecTreeDirectoryNode): readonly SpecTreeSpecNode[] => {
+  return node.specs;
 };
 
 const renderInspectSpecSections = (node: SpecTreeSpecNode, depth: number): string[] => {
@@ -295,9 +336,9 @@ export const createInspectCommand = (
 
   command
     .description('Inspect SpecDD spec files and selected sections.')
-    .argument('[path]', 'Directory to inspect. Defaults to the current directory.')
-    .option('--section <name>', 'Section to include. May be repeated.', collectInspectSectionOption, [])
-    .option('--sections <names>', 'Comma-separated sections to include.')
+    .argument('[path]', 'Directory, .sdd file, or ordinary file to inspect. Defaults to the current directory.')
+    .option('--section <name>', 'Section to include, or all. May be repeated.', collectInspectSectionOption, [])
+    .option('--sections <names>', 'Comma-separated sections to include, or all.')
     .option('--format <format>', 'Output format: text, json, or json-extended.', 'text')
     .addHelpText(
       'after',
@@ -306,11 +347,13 @@ export const createInspectCommand = (
     .action(async (targetPath: string | undefined, options: InspectCommandOptions) => {
       const format = resolveInspectOutputFormat(options.format);
       const sectionNames = resolveInspectSectionNames(options.section, options.sections);
+      const currentWorkingDirectoryPath = getCurrentWorkingDirectory();
       const result = await container.specTree.build({
+        rootDirectoryPath: currentWorkingDirectoryPath,
         ...(undefined === sectionNames ? {} : {
           sectionNames,
         }),
-        targetDirectoryPath: resolveInspectTargetPath(getCurrentWorkingDirectory(), targetPath),
+        targetPath: resolveInspectTargetPath(currentWorkingDirectoryPath, targetPath),
       });
 
       writeOutput(renderInspect(result, format));

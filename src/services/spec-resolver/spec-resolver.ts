@@ -20,6 +20,18 @@ import type {
   SpecSection,
   SpecSectionName,
 } from '../spec-parser/spec-parser.js';
+import {
+  type SpecDirectoryContextMatch,
+} from '../spec-directory-context/spec-directory-context.js';
+import {
+  SpecTargetContext,
+  SpecTargetContextDiscoveryError,
+  SpecTargetContextRootNotDirectoryError,
+  SpecTargetContextRootNotFoundError,
+  type SpecTargetContextTarget,
+  SpecTargetContextTargetNotFoundError,
+  SpecTargetContextTargetOutsideRootError,
+} from '../spec-target-context/spec-target-context.js';
 
 const DEFAULT_SECTION_NAMES = [
   'Purpose',
@@ -78,6 +90,7 @@ export type SpecResolveDirectoryNode = {
   readonly name: string;
   readonly path: string;
   readonly spec: SpecResolveSpecNode | null;
+  readonly specs: readonly SpecResolveSpecNode[];
   readonly children: readonly SpecResolveNode[];
 };
 
@@ -85,6 +98,7 @@ export type SpecResolveNode = SpecResolveDirectoryNode | SpecResolveSpecNode;
 
 export type SpecResolveResult = {
   readonly rootDirectoryPath: string;
+  readonly targetDirectoryPath: string;
   readonly targetPath: string;
   readonly linkDepth: SpecResolveLinkDepth;
   readonly sectionNames: readonly string[];
@@ -106,12 +120,30 @@ type MutableResolvedSpec = {
   readonly reasons: SpecResolveReason[];
 };
 
+type SpecResolveTarget = SpecTargetContextTarget;
+
+type SpecResolveTargetContextDependency = Pick<
+  SpecTargetContext,
+  | 'absoluteDirectoryPath'
+  | 'absoluteSpecPath'
+  | 'directoryContextMatches'
+  | 'directorySpecMatches'
+  | 'isInsideOrSame'
+  | 'normalizeRelativePath'
+  | 'relativeDirectoryPath'
+  | 'relativeSpecPath'
+  | 'resolveRequiredRootAndTarget'
+  | 'targetSpecPaths'
+>;
+
+type MutableSpecResolveNode = MutableSpecResolveDirectoryNode | SpecResolveSpecNode;
+
 type MutableSpecResolveDirectoryNode = {
   readonly type: 'directory';
   readonly name: string;
   readonly path: string;
-  spec: SpecResolveSpecNode | null;
-  readonly children: SpecResolveNode[];
+  readonly specs: SpecResolveSpecNode[];
+  readonly children: MutableSpecResolveNode[];
   readonly directoryChildren: Map<string, MutableSpecResolveDirectoryNode>;
 };
 
@@ -153,10 +185,10 @@ export class SpecResolveTargetOutsideRootError extends CliError {
   }
 }
 
-export class SpecResolveUnsupportedTargetError extends CliError {
-  public constructor(path: string) {
-    super(`Spec resolve target must be a directory or .sdd file: ${path}`);
-    this.name = 'SpecResolveUnsupportedTargetError';
+export class SpecResolveAmbiguousTargetSpecError extends CliError {
+  public constructor(path: string, specPaths: readonly string[]) {
+    super(`Ambiguous target SpecDD specs for ${path}: ${specPaths.join(', ')}`);
+    this.name = 'SpecResolveAmbiguousTargetSpecError';
   }
 }
 
@@ -188,27 +220,28 @@ export class SpecResolver {
 
   private readonly findSpecPaths: SpecResolvePathFinder;
 
+  private readonly targetContext: SpecResolveTargetContextDependency;
+
   public constructor(
     fileSystem: SpecResolveFileSystemDependency,
     specParser: SpecResolveSpecParserDependency,
     findSpecPaths: SpecResolvePathFinder = SpecResolver.findSpecPaths,
+    targetContext: SpecResolveTargetContextDependency = new SpecTargetContext(fileSystem),
   ) {
     this.fileSystem = fileSystem;
     this.specParser = specParser;
     this.findSpecPaths = findSpecPaths;
+    this.targetContext = targetContext;
   }
 
   public async resolve(request: SpecResolveRequest): Promise<SpecResolveResult> {
-    const rootDirectoryPath = resolve(request.rootDirectoryPath);
-    const targetPath = resolve(request.targetPath);
     const sectionNames = this.requestedSectionNames(request.sectionNames);
     const linkDepth = request.linkDepth ?? DEFAULT_LINK_DEPTH;
-    const targetIsDirectory = await this.validateRootAndTarget(rootDirectoryPath, targetPath);
+    const { rootDirectoryPath, target } = await this.resolveRootAndTarget(request.rootDirectoryPath, request.targetPath);
     const resolvedSpecs = new Map<string, MutableResolvedSpec>();
     const expansionQueue = await this.resolveVerticalContext(
       rootDirectoryPath,
-      targetPath,
-      targetIsDirectory,
+      target,
       resolvedSpecs,
     );
 
@@ -217,15 +250,16 @@ export class SpecResolver {
     const parsedSpecs = [
       ...resolvedSpecs.values(),
     ].sort((left, right) => left.path.localeCompare(right.path));
-    const directoryLevelSpecPaths = this.directoryLevelSpecPaths(rootDirectoryPath, parsedSpecs);
+    const directoryContextMatches = await this.directoryContextMatches(rootDirectoryPath, parsedSpecs);
 
     return {
       linkDepth,
-      root: this.buildRootNode(rootDirectoryPath, parsedSpecs, sectionNames, directoryLevelSpecPaths),
+      root: this.buildRootNode(rootDirectoryPath, parsedSpecs, sectionNames, directoryContextMatches),
       rootDirectoryPath,
       sectionNames,
-      specs: this.buildFlatSpecList(parsedSpecs, sectionNames, directoryLevelSpecPaths),
-      targetPath,
+      specs: this.buildFlatSpecList(parsedSpecs, sectionNames, directoryContextMatches),
+      targetDirectoryPath: target.directoryPath,
+      targetPath: target.path,
     };
   }
 
@@ -239,30 +273,16 @@ export class SpecResolver {
     ];
   }
 
-  private async validateRootAndTarget(rootDirectoryPath: string, targetPath: string): Promise<boolean> {
-    if (!await this.exists(rootDirectoryPath)) {
-      throw new SpecResolveRootNotFoundError(rootDirectoryPath);
+  private async resolveRootAndTarget(rootDirectoryPath: string, targetPath: string): Promise<{
+    readonly rootDirectoryPath: string;
+    readonly target: SpecResolveTarget;
+  }> {
+    try {
+      return await this.targetContext.resolveRequiredRootAndTarget(rootDirectoryPath, targetPath);
+    } catch (error) {
+      this.raiseTargetContextError(error);
+      throw error;
     }
-
-    if (!await this.isDirectory(rootDirectoryPath)) {
-      throw new SpecResolveRootNotDirectoryError(rootDirectoryPath);
-    }
-
-    if (!await this.exists(targetPath)) {
-      throw new SpecResolveTargetNotFoundError(targetPath);
-    }
-
-    if (!this.isInsideOrSame(rootDirectoryPath, targetPath)) {
-      throw new SpecResolveTargetOutsideRootError(targetPath, rootDirectoryPath);
-    }
-
-    const targetIsDirectory = await this.isDirectory(targetPath);
-
-    if (!targetIsDirectory && '.sdd' !== extname(targetPath)) {
-      throw new SpecResolveUnsupportedTargetError(targetPath);
-    }
-
-    return targetIsDirectory;
   }
 
   private async exists(path: string): Promise<boolean> {
@@ -283,29 +303,26 @@ export class SpecResolver {
 
   private async resolveVerticalContext(
     rootDirectoryPath: string,
-    targetPath: string,
-    targetIsDirectory: boolean,
+    target: SpecResolveTarget,
     resolvedSpecs: Map<string, MutableResolvedSpec>,
   ): Promise<readonly QueuedSpecExpansion[]> {
-    const targetDirectoryPath = targetIsDirectory ? targetPath : dirname(targetPath);
-    const targetSpecPath = targetIsDirectory ? null : targetPath;
+    const targetDirectoryPath = target.directoryPath;
+    const targetSpecPath = await this.targetSpecPath(rootDirectoryPath, target);
     const queuedSpecExpansions = new Map<string, number>();
 
     for (const directoryPath of this.directoryChain(rootDirectoryPath, targetDirectoryPath)) {
-      const directoryLevelSpecPath = await this.directoryLevelSpecPath(rootDirectoryPath, directoryPath);
+      const directoryLevelSpecPaths = await this.directoryLevelSpecPaths(rootDirectoryPath, directoryPath);
 
-      if (null === directoryLevelSpecPath) {
-        continue;
+      for (const directoryLevelSpecPath of directoryLevelSpecPaths) {
+        const reason = this.verticalReason(rootDirectoryPath, directoryPath, target, targetSpecPath, directoryLevelSpecPath);
+        const relativeSpecPath = await this.addResolvedSpec(rootDirectoryPath, resolvedSpecs, directoryLevelSpecPath, reason);
+
+        this.queueSpecExpansion(
+          queuedSpecExpansions,
+          relativeSpecPath,
+          this.verticalExpansionDepth(directoryPath, targetDirectoryPath, reason),
+        );
       }
-
-      const reason = this.verticalReason(rootDirectoryPath, directoryPath, targetDirectoryPath, targetIsDirectory, targetSpecPath, directoryLevelSpecPath);
-      const relativeSpecPath = await this.addResolvedSpec(rootDirectoryPath, resolvedSpecs, directoryLevelSpecPath, reason);
-
-      this.queueSpecExpansion(
-        queuedSpecExpansions,
-        relativeSpecPath,
-        this.verticalExpansionDepth(directoryPath, targetDirectoryPath, reason),
-      );
     }
 
     if (null !== targetSpecPath) {
@@ -375,12 +392,11 @@ export class SpecResolver {
   private verticalReason(
     rootDirectoryPath: string,
     directoryPath: string,
-    targetDirectoryPath: string,
-    targetIsDirectory: boolean,
+    target: SpecResolveTarget,
     targetSpecPath: string | null,
     directoryLevelSpecPath: string,
   ): SpecResolveReason {
-    if (targetIsDirectory && directoryPath === targetDirectoryPath) {
+    if ('directory' === target.kind && directoryPath === target.directoryPath) {
       return {
         kind: 'target',
       };
@@ -393,9 +409,52 @@ export class SpecResolver {
     }
 
     return {
-      directoryPath: this.relativeDirectoryPath(rootDirectoryPath, directoryPath),
+      directoryPath: this.targetContext.relativeDirectoryPath(rootDirectoryPath, directoryPath),
       kind: 'parent',
     };
+  }
+
+  private async targetSpecPath(
+    rootDirectoryPath: string,
+    target: SpecResolveTarget,
+  ): Promise<string | null> {
+    if ('directory' === target.kind) {
+      return null;
+    }
+
+    if ('spec' === target.kind) {
+      return target.path;
+    }
+
+    return this.fileTargetSpecPath(rootDirectoryPath, target.path);
+  }
+
+  private async fileTargetSpecPath(rootDirectoryPath: string, targetPath: string): Promise<string | null> {
+    const targetDirectoryPath = dirname(targetPath);
+    const candidates = (await this.discoverSpecPaths(targetDirectoryPath, '*.sdd')).map((specPath) => (
+      this.targetContext.relativeSpecPath(rootDirectoryPath, specPath)
+    ));
+    const result = this.targetContext.targetSpecPaths(rootDirectoryPath, {
+      directoryPath: targetDirectoryPath,
+      kind: 'file',
+      path: targetPath,
+    }, candidates);
+
+    if (0 < result.ambiguities.length) {
+      const ambiguity = result.ambiguities[0] as NonNullable<typeof result.ambiguities[0]>;
+      throw new SpecResolveAmbiguousTargetSpecError(
+        ambiguity.targetPath,
+        ambiguity.specPaths,
+      );
+    }
+
+    const specPath = result.specPaths[0];
+
+    if (undefined === specPath) {
+      return null;
+    }
+
+    return this.targetContext.absoluteSpecPath(rootDirectoryPath, specPath);
   }
 
   private directoryChain(rootDirectoryPath: string, targetDirectoryPath: string): readonly string[] {
@@ -415,33 +474,27 @@ export class SpecResolver {
     return directories.reverse();
   }
 
-  private async directoryLevelSpecPath(rootDirectoryPath: string, directoryPath: string): Promise<string | null> {
-    const specPaths = await this.discoverSpecPaths(directoryPath, '*.sdd');
-    const directoryBasename = basename(directoryPath);
-    const exactMatch = specPaths.find((specPath) => this.specBasename(specPath) === directoryBasename);
+  private async directoryLevelSpecPaths(rootDirectoryPath: string, directoryPath: string): Promise<readonly string[]> {
+    const absoluteSpecPaths = [
+      ...(directoryPath === rootDirectoryPath ? [] : await this.discoverSpecPaths(dirname(directoryPath), '*.sdd')),
+      ...(await this.discoverSpecPaths(directoryPath, '*.sdd')),
+    ];
+    const relativeSpecPaths = absoluteSpecPaths.map((specPath) => this.targetContext.relativeSpecPath(rootDirectoryPath, specPath));
+    const result = this.targetContext.directorySpecMatches(rootDirectoryPath, directoryPath, relativeSpecPaths);
 
-    if (undefined !== exactMatch) {
-      return exactMatch;
+    if (0 < result.ambiguities.length) {
+      const ambiguity = result.ambiguities[0] as NonNullable<typeof result.ambiguities[0]>;
+
+      throw new SpecResolveAmbiguousDirectorySpecError(ambiguity.directoryPath, ambiguity.specPaths);
     }
 
-    const lowercaseMatches = specPaths.filter((specPath) => this.specBasename(specPath).toLowerCase() === directoryBasename.toLowerCase());
+    const matchedSpecPaths = result.matches.map((match) => this.targetContext.absoluteSpecPath(rootDirectoryPath, match.specPath));
 
-    if (1 < lowercaseMatches.length) {
-      throw new SpecResolveAmbiguousDirectorySpecError(
-        this.relativeDirectoryPath(rootDirectoryPath, directoryPath),
-        lowercaseMatches.map((specPath) => this.relativeSpecPath(rootDirectoryPath, specPath)),
-      );
+    if (0 < matchedSpecPaths.length) {
+      return matchedSpecPaths;
     }
 
-    if (undefined !== lowercaseMatches[0]) {
-      return lowercaseMatches[0];
-    }
-
-    if (directoryPath === rootDirectoryPath) {
-      return specPaths.find((specPath) => 'app' === this.specBasename(specPath)) ?? null;
-    }
-
-    return null;
+    return [];
   }
 
   private async addResolvedSpec(
@@ -450,7 +503,7 @@ export class SpecResolver {
     absoluteSpecPath: string,
     reason: SpecResolveReason,
   ): Promise<string> {
-    const relativeSpecPath = this.relativeSpecPath(rootDirectoryPath, absoluteSpecPath);
+    const relativeSpecPath = this.targetContext.relativeSpecPath(rootDirectoryPath, absoluteSpecPath);
     const existingSpec = resolvedSpecs.get(relativeSpecPath);
 
     if (undefined !== existingSpec) {
@@ -581,7 +634,7 @@ export class SpecResolver {
 
   private explicitPathTargets(text: string): readonly string[] {
     const targets = [];
-    const pattern = /(^|[\s([{<"'])((?:\.{1,2}\/|\/)[^\s`"'<>]*)/gu;
+    const pattern = /(^|[\s([{<"'`])((?:\.{1,2}\/|\/)[^\s`"'<>]*)/gu;
     let match: RegExpExecArray | null = pattern.exec(text);
 
     while (null !== match) {
@@ -600,7 +653,7 @@ export class SpecResolver {
   private cleanPathCandidate(candidate: string): string {
     let cleanedCandidate = candidate.replace(/^`+|`+$/gu, '');
 
-    while (/[),.;:]$/u.test(cleanedCandidate)) {
+    while (/[)\]}.,;:]$/u.test(cleanedCandidate)) {
       cleanedCandidate = cleanedCandidate.slice(0, -1);
     }
 
@@ -626,20 +679,24 @@ export class SpecResolver {
 
     const absoluteTargetPath = resolve(searchRootPath, searchTarget);
 
-    if (!this.isInsideOrSame(rootDirectoryPath, absoluteTargetPath) || !await this.exists(absoluteTargetPath)) {
+    if (!this.targetContext.isInsideOrSame(rootDirectoryPath, absoluteTargetPath) || !await this.exists(absoluteTargetPath)) {
       return [];
     }
 
     if (await this.isDirectory(absoluteTargetPath)) {
-      return this.filterSpecPathsUnderRoot(rootDirectoryPath, await this.discoverSpecPaths(absoluteTargetPath, '**/*.sdd'));
+      return this.filterSpecPathsUnderRoot(rootDirectoryPath, await this.directoryLevelSpecPaths(rootDirectoryPath, absoluteTargetPath));
     }
 
-    if ('.sdd' !== extname(absoluteTargetPath)) {
-      return [];
+    if ('.sdd' === extname(absoluteTargetPath)) {
+      return [
+        absoluteTargetPath,
+      ];
     }
 
-    return [
-      absoluteTargetPath,
+    const targetSpecPath = await this.fileTargetSpecPath(rootDirectoryPath, absoluteTargetPath);
+
+    return null === targetSpecPath ? [] : [
+      targetSpecPath,
     ];
   }
 
@@ -658,95 +715,57 @@ export class SpecResolver {
   }
 
   private filterSpecPathsUnderRoot(rootDirectoryPath: string, specPaths: readonly string[]): readonly string[] {
-    return specPaths.filter((specPath) => this.isInsideOrSame(rootDirectoryPath, specPath));
+    return specPaths.filter((specPath) => this.targetContext.isInsideOrSame(rootDirectoryPath, specPath));
   }
 
-  private directoryLevelSpecPaths(
+  private async directoryContextMatches(
     rootDirectoryPath: string,
     parsedSpecs: readonly MutableResolvedSpec[],
-  ): Set<string> {
-    const specsByDirectoryPath = this.groupSpecsByDirectoryPath(parsedSpecs);
-    const directoryLevelSpecPaths = new Set<string>();
+  ): Promise<readonly SpecDirectoryContextMatch[]> {
+    let result;
 
-    for (const [directoryPath, specs] of specsByDirectoryPath.entries()) {
-      const directoryBasename = this.directoryBasename(rootDirectoryPath, directoryPath);
-      const directoryLevelSpec = this.directoryLevelSpec(directoryPath, directoryBasename, specs);
+    try {
+      result = await this.targetContext.directoryContextMatches(rootDirectoryPath, parsedSpecs);
+    } catch (error) {
+      const discoveryError = error as SpecTargetContextDiscoveryError;
 
-      if (null !== directoryLevelSpec) {
-        directoryLevelSpecPaths.add(directoryLevelSpec.path);
-      }
+      throw new SpecResolveDiscoveryError(discoveryError.path, discoveryError.reason);
     }
 
-    return directoryLevelSpecPaths;
-  }
+    if (0 < result.ambiguities.length) {
+      const ambiguity = result.ambiguities[0] as NonNullable<typeof result.ambiguities[0]>;
 
-  private groupSpecsByDirectoryPath(
-    parsedSpecs: readonly MutableResolvedSpec[],
-  ): ReadonlyMap<string, readonly MutableResolvedSpec[]> {
-    const specsByDirectoryPath = new Map<string, MutableResolvedSpec[]>();
-
-    for (const parsedSpec of parsedSpecs) {
-      specsByDirectoryPath.set(parsedSpec.directoryPath, [
-        ...(specsByDirectoryPath.get(parsedSpec.directoryPath) ?? []),
-        parsedSpec,
-      ]);
+      throw new SpecResolveAmbiguousDirectorySpecError(ambiguity.directoryPath, ambiguity.specPaths);
     }
 
-    return specsByDirectoryPath;
-  }
-
-  private directoryBasename(rootDirectoryPath: string, directoryPath: string): string {
-    if ('.' === directoryPath) {
-      return basename(rootDirectoryPath);
-    }
-
-    return posix.basename(directoryPath);
-  }
-
-  private directoryLevelSpec(
-    directoryPath: string,
-    directoryBasename: string,
-    specs: readonly MutableResolvedSpec[],
-  ): MutableResolvedSpec | null {
-    const exactMatch = specs.find((spec) => this.resolvedSpecBasename(spec) === directoryBasename);
-
-    if (undefined !== exactMatch) {
-      return exactMatch;
-    }
-
-    const lowercaseMatches = specs.filter((spec) => this.resolvedSpecBasename(spec).toLowerCase() === directoryBasename.toLowerCase());
-
-    if (1 < lowercaseMatches.length) {
-      throw new SpecResolveAmbiguousDirectorySpecError(directoryPath, lowercaseMatches.map((spec) => spec.path));
-    }
-
-    return lowercaseMatches[0] ?? null;
-  }
-
-  private resolvedSpecBasename(spec: MutableResolvedSpec): string {
-    return spec.name.slice(0, -'.sdd'.length);
+    return result.matches;
   }
 
   private buildRootNode(
     rootDirectoryPath: string,
     parsedSpecs: readonly MutableResolvedSpec[],
     sectionNames: readonly string[],
-    directoryLevelSpecPaths: ReadonlySet<string>,
+    directoryContextMatches: readonly SpecDirectoryContextMatch[],
   ): SpecResolveDirectoryNode {
     const root = this.createMutableDirectoryNode('.', basename(rootDirectoryPath));
+    const parsedSpecByPath = new Map(parsedSpecs.map((parsedSpec) => [
+      parsedSpec.path,
+      parsedSpec,
+    ]));
+    const directoryLevelSpecPaths = new Set(directoryContextMatches.map((match) => match.specPath));
+
+    for (const match of directoryContextMatches) {
+      const parsedSpec = parsedSpecByPath.get(match.specPath) as MutableResolvedSpec;
+
+      this.directoryNode(root, match.directoryPath).specs.push(this.specNode(parsedSpec, sectionNames, true));
+    }
 
     for (const parsedSpec of parsedSpecs) {
-      const directoryNode = this.directoryNode(root, parsedSpec.directoryPath);
-      const isDirectoryLevel = directoryLevelSpecPaths.has(parsedSpec.path);
-      const specNode = this.specNode(parsedSpec, sectionNames, isDirectoryLevel);
-
-      if (isDirectoryLevel) {
-        directoryNode.spec = specNode;
-
+      if (directoryLevelSpecPaths.has(parsedSpec.path)) {
         continue;
       }
 
-      directoryNode.children.push(specNode);
+      this.directoryNode(root, parsedSpec.directoryPath).children.push(this.specNode(parsedSpec, sectionNames, false));
     }
 
     return this.toDirectoryNode(root);
@@ -755,8 +774,10 @@ export class SpecResolver {
   private buildFlatSpecList(
     parsedSpecs: readonly MutableResolvedSpec[],
     sectionNames: readonly string[],
-    directoryLevelSpecPaths: ReadonlySet<string>,
+    directoryContextMatches: readonly SpecDirectoryContextMatch[],
   ): readonly SpecResolveSpecNode[] {
+    const directoryLevelSpecPaths = new Set(directoryContextMatches.map((match) => match.specPath));
+
     return parsedSpecs.map((parsedSpec) => this.specNode(
       parsedSpec,
       sectionNames,
@@ -825,53 +846,52 @@ export class SpecResolver {
       directoryChildren: new Map(),
       name,
       path,
-      spec: null,
+      specs: [],
       type: 'directory',
     };
   }
 
   private toDirectoryNode(node: MutableSpecResolveDirectoryNode): SpecResolveDirectoryNode {
+    const specs = [
+      ...node.specs,
+    ];
+
     return {
       children: node.children.sort((left, right) => left.path.localeCompare(right.path)).map((child) => {
         if ('directory' === child.type) {
-          return this.toDirectoryNode(child as MutableSpecResolveDirectoryNode);
+          return this.toDirectoryNode(child);
         }
 
         return child;
       }),
       name: node.name,
       path: node.path,
-      spec: node.spec,
+      spec: specs[0] ?? null,
+      specs,
       type: 'directory',
     };
   }
 
-  private specBasename(specPath: string): string {
-    return basename(specPath).slice(0, -'.sdd'.length);
-  }
-
-  private relativeDirectoryPath(rootDirectoryPath: string, directoryPath: string): string {
-    const relativePath = this.normalizeRelativePath(relative(rootDirectoryPath, directoryPath));
-
-    if ('' === relativePath) {
-      return '.';
+  private raiseTargetContextError(error: unknown): void {
+    if (error instanceof SpecTargetContextRootNotFoundError) {
+      throw new SpecResolveRootNotFoundError(error.path);
     }
 
-    return relativePath;
-  }
+    if (error instanceof SpecTargetContextRootNotDirectoryError) {
+      throw new SpecResolveRootNotDirectoryError(error.path);
+    }
 
-  private relativeSpecPath(rootDirectoryPath: string, specPath: string): string {
-    return this.normalizeRelativePath(relative(rootDirectoryPath, specPath));
-  }
+    if (error instanceof SpecTargetContextTargetNotFoundError) {
+      throw new SpecResolveTargetNotFoundError(error.path);
+    }
 
-  private normalizeRelativePath(path: string): string {
-    return path.replaceAll('\\', '/');
-  }
+    if (error instanceof SpecTargetContextTargetOutsideRootError) {
+      throw new SpecResolveTargetOutsideRootError(error.targetPath, error.rootDirectoryPath);
+    }
 
-  private isInsideOrSame(rootDirectoryPath: string, targetPath: string): boolean {
-    const relativePath = relative(rootDirectoryPath, targetPath);
-
-    return '' === relativePath || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
+    if (error instanceof SpecTargetContextDiscoveryError) {
+      throw new SpecResolveDiscoveryError(error.path, error.reason);
+    }
   }
 
   private static async findSpecPaths(cwd: string, pattern: string): Promise<readonly string[]> {
@@ -879,6 +899,7 @@ export class SpecResolver {
       absolute: true,
       cwd,
       dot: true,
+      followSymbolicLinks: false,
       onlyFiles: true,
       unique: true,
     });

@@ -2,27 +2,27 @@ import { CliError } from '../../cli-error.js';
 import type { FileReaderDependency } from '../../infrastructure/file-system.js';
 
 export const SPEC_SECTION_NAMES = [
-  'Can modify',
-  'Can read',
-  'Must not',
-  'Depends on',
-  'Done when',
-  'References',
-  'Structure',
+  'Spec',
   'Platform',
   'Purpose',
+  'Structure',
+  'Owns',
+  'Can modify',
+  'Can read',
+  'References',
+  'Must',
+  'Must not',
   'Forbids',
+  'Depends on',
   'Exposes',
   'Accepts',
   'Returns',
   'Raises',
   'Handles',
+  'Tasks',
+  'Done when',
   'Scenario',
   'Example',
-  'Spec',
-  'Owns',
-  'Must',
-  'Tasks',
 ] as const;
 
 const REQUIRED_INLINE_VALUE_SECTIONS = new Set<SpecSectionName>([

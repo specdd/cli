@@ -131,17 +131,27 @@ specdd agentskills deploy --version 1.2.3
 
 ## Inspect Specs
 
-Inspect SpecDD specs in the current directory:
+Inspect SpecDD specs for the current directory:
 
 ```bash
 specdd inspect
 ```
 
-Inspect another directory:
+Inspect another directory, `.sdd` file, or ordinary file:
 
 ```bash
 specdd inspect path/to/project
+specdd inspect path/to/project/project.sdd
+specdd inspect path/to/project/src/feature.ts
 ```
+
+Root-level project specs follow the containing directory basename convention, so a project in `path/to/project` uses
+`project.sdd`.
+
+Targets must exist. Directory targets include specs under that directory plus upward directory context. `.sdd` targets
+include that spec plus upward directory context. Ordinary file targets include a same-basename `.sdd` file such as
+`feature.sdd` for `feature.ts` when present; when no matching spec exists, inspect still walks upward through directory
+context.
 
 By default, inspect output includes each spec's `Purpose` section when present. Include other sections with repeated
 `--section` options or a comma-separated `--sections` option:
@@ -149,10 +159,16 @@ By default, inspect output includes each spec's `Purpose` section when present. 
 ```bash
 specdd inspect --section Purpose --section Must
 specdd inspect --sections Purpose,Must,Tasks
+specdd inspect --sections all
 ```
+
+Use `--sections all` to include every SpecDD section present in each spec.
 
 The default output is text. It groups specs by directory headings rooted at the scanned directory, such as `/`,
 `/commands/`, and `/services/config/`.
+
+Directory-level specs include both parent-held specs such as `src/foo/bar.sdd` and local specs such as
+`src/foo/bar/bar.sdd` when both exist. Parent-held specs are shown before local specs for that directory.
 
 ```bash
 specdd inspect --format text
@@ -168,11 +184,12 @@ specdd inspect --format json-extended
 
 ## Resolve Specs
 
-Resolve relevant specs for a target directory or `.sdd` file:
+Resolve relevant specs for a target directory, `.sdd` file, or ordinary file:
 
 ```bash
 specdd resolve path/to/project/src/feature
 specdd resolve path/to/project/src/feature/feature.sdd
+specdd resolve path/to/project/src/feature/handler.ts
 ```
 
 Use `--root` to set the project root used for upward resolution and `/`-prefixed spec paths:
@@ -183,7 +200,14 @@ specdd resolve --root path/to/project path/to/project/src/feature
 
 `resolve` always includes vertical directory context from the target up to the root. It then expands soft links from the
 target spec and nearby parent context specs using `Owns`, `Can modify`, `Can read`, `References`, `Depends on`, and
-`Structure`. Only explicit local paths beginning with `./`, `../`, or `/` are followed.
+`Structure`. Only explicit local paths beginning with `./`, `../`, or `/` are followed. Non-glob directory links resolve
+to the directory-level specs for that directory; use a glob such as `./**/*.sdd` to include descendant specs.
+
+Targets must exist. Ordinary file targets use a same-basename `.sdd` file as the target anchor when present; otherwise
+`resolve` continues with upward directory context only.
+
+Directory context includes both parent-held specs such as `src/foo/bar.sdd` and local specs such as
+`src/foo/bar/bar.sdd` when both govern the same directory. Parent-held specs are resolved before local specs.
 
 Depth controls how far `resolve` expands from the target and parent context:
 
@@ -207,6 +231,7 @@ Like `inspect`, `resolve` shows `Purpose` by default and accepts section filters
 ```bash
 specdd resolve path/to/project/src/feature --section Purpose --section Must
 specdd resolve path/to/project/src/feature --sections Purpose,Must,Tasks
+specdd resolve path/to/project/src/feature --sections all
 specdd resolve path/to/project/src/feature --format text
 specdd resolve path/to/project/src/feature --format json
 specdd resolve path/to/project/src/feature --format json-extended
@@ -214,17 +239,23 @@ specdd resolve path/to/project/src/feature --format json-extended
 
 ## Lint Specs
 
-Lint SpecDD specs in the current directory:
+Lint SpecDD specs for the current directory:
 
 ```bash
 specdd lint
 ```
 
-Lint another directory:
+Lint another directory, `.sdd` file, or ordinary file:
 
 ```bash
 specdd lint path/to/project
+specdd lint path/to/project/project.sdd
+specdd lint path/to/project/src/feature.ts
 ```
+
+Targets must exist. Directory targets lint specs under that directory plus upward directory context. `.sdd` targets lint
+that spec plus upward directory context. Ordinary file targets lint a same-basename `.sdd` file when present; when no
+matching spec exists, lint still walks upward through directory context.
 
 The default output is text. It prints only files with diagnostics, followed by indented diagnostic bullets:
 
@@ -242,6 +273,8 @@ specdd lint --format json
 
 Lint reports all visible parse errors within each discovered spec in one run. It exits with status `1` when errors are
 present.
+
+Lint uses the same directory-level spec layout as `inspect`, including cumulative parent-held and local directory specs.
 
 ## Versions
 

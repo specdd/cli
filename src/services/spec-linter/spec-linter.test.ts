@@ -92,6 +92,23 @@ class MemoryFileSystem implements DirectoryCheckerDependency, FileExistenceDepen
   }
 }
 
+class DirectoryContextLookupFailureFileSystem extends MemoryFileSystem {
+  private readonly failingPath: string;
+
+  public constructor(failingPath: string, options: MemoryFileSystemOptions = {}) {
+    super(options);
+    this.failingPath = failingPath;
+  }
+
+  public override async exists(path: string): Promise<boolean> {
+    if (path === this.failingPath) {
+      throw new Error('directory context lookup failed');
+    }
+
+    return super.exists(path);
+  }
+}
+
 const targetDirectoryPath = resolve('/workspace/project');
 
 const specContent = (title: string, purpose: string | null = null): string => {
@@ -137,7 +154,7 @@ const createSpecLinter = (
 describe('SpecLinter', () => {
   it('builds a clean deterministic lint tree with directory-level specs', async () => {
     const files = {
-      [join(targetDirectoryPath, 'app.sdd')]: specContent('App'),
+      [join(targetDirectoryPath, 'project.sdd')]: specContent('App'),
       [join(targetDirectoryPath, 'billing', 'billing.sdd')]: specContent('Billing', 'Own billing.'),
       [join(targetDirectoryPath, 'billing', 'invoice.sdd')]: specContent('Invoice', 'Own invoices.'),
       [join(targetDirectoryPath, 'catalog', 'Catalog.sdd')]: specContent('Catalog', 'Own catalog.'),
@@ -147,7 +164,7 @@ describe('SpecLinter', () => {
       files,
       findSpecPaths: async () => [
         'billing/invoice.sdd',
-        './app.sdd',
+        './project.sdd',
         'catalog\\item.sdd',
         'billing/billing.sdd',
         'catalog/Catalog.sdd',
@@ -169,15 +186,17 @@ describe('SpecLinter', () => {
     expect(result.root).toMatchObject({
       name: 'project',
       path: '.',
-      spec: null,
+      spec: {
+        directoryLevel: true,
+        path: 'project.sdd',
+      },
       type: 'directory',
     });
     expect(result.root.children.map((child) => child.path)).toEqual([
-      'app.sdd',
       'billing',
       'catalog',
     ]);
-    expect(result.root.children[1]).toMatchObject({
+    expect(result.root.children[0]).toMatchObject({
       path: 'billing',
       spec: {
         diagnostics: [],
@@ -188,17 +207,72 @@ describe('SpecLinter', () => {
     });
     expect(fileSystem.checkedExistencePaths).toEqual([
       targetDirectoryPath,
+      join(targetDirectoryPath, 'billing', 'billing'),
+      join(targetDirectoryPath, 'billing', 'invoice'),
+      join(targetDirectoryPath, 'catalog', 'Catalog'),
+      join(targetDirectoryPath, 'catalog', 'item'),
+      join(targetDirectoryPath, 'project'),
     ]);
     expect(fileSystem.checkedDirectoryPaths).toEqual([
       targetDirectoryPath,
     ]);
     expect(fileSystem.readFilePaths).toEqual([
-      join(targetDirectoryPath, 'app.sdd'),
       join(targetDirectoryPath, 'billing', 'billing.sdd'),
       join(targetDirectoryPath, 'billing', 'invoice.sdd'),
       join(targetDirectoryPath, 'catalog', 'Catalog.sdd'),
       join(targetDirectoryPath, 'catalog', 'item.sdd'),
+      join(targetDirectoryPath, 'project.sdd'),
     ]);
+  });
+
+  it('attaches parent-held and local directory specs as cumulative lint context', async () => {
+    const files = {
+      [join(targetDirectoryPath, 'src', 'foo', 'bar.sdd')]: specContent('Broad Bar', 'Govern bar broadly.'),
+      [join(targetDirectoryPath, 'src', 'foo', 'bar', 'bar.sdd')]: specContent('Local Bar', 'Govern bar locally.'),
+      [join(targetDirectoryPath, 'src', 'foo', 'bar', 'helper.sdd')]: specContent('Helper', 'Describe helper.'),
+    };
+    const { specLinter } = createSpecLinter({
+      directories: [
+        targetDirectoryPath,
+        join(targetDirectoryPath, 'src'),
+        join(targetDirectoryPath, 'src', 'foo'),
+        join(targetDirectoryPath, 'src', 'foo', 'bar'),
+      ],
+      files,
+      findSpecPaths: async () => [
+        'src/foo/bar/helper.sdd',
+        'src/foo/bar/bar.sdd',
+        'src/foo/bar.sdd',
+      ],
+    });
+
+    const result = await specLinter.lint({
+      targetDirectoryPath,
+    });
+    const barDirectory = result.root.children
+      .filter((child) => 'directory' === child.type)
+      .flatMap((child) => child.children)
+      .filter((child) => 'directory' === child.type)
+      .flatMap((child) => child.children)
+      .find((child) => 'directory' === child.type && 'src/foo/bar' === child.path);
+
+    expect(result.diagnostics).toEqual([]);
+    expect(barDirectory).toMatchObject({
+      path: 'src/foo/bar',
+      spec: {
+        path: 'src/foo/bar.sdd',
+      },
+      specs: [
+        {
+          directoryLevel: true,
+          path: 'src/foo/bar.sdd',
+        },
+        {
+          directoryLevel: true,
+          path: 'src/foo/bar/bar.sdd',
+        },
+      ],
+    });
   });
 
   it('accumulates parse, read, and directory-level ambiguity diagnostics without stopping early', async () => {
@@ -272,7 +346,7 @@ Tasks:
     expect(result.diagnostics[3]?.message).toBe("Section 'Spec' is missing ':'");
     expect(result.diagnostics[4]?.message).toBe('Invalid SpecDD syntax');
     expect(result.diagnostics[1]?.message).toBe(
-      'Ambiguous directory-level SpecDD specs for Billing: Billing/BILLING.sdd, Billing/billing.sdd',
+      'Ambiguous directory-level SpecDD specs for Billing: Billing/billing.sdd, Billing/BILLING.sdd',
     );
     expect(result.root.children.map((child) => child.path)).toEqual([
       'bad.sdd',
@@ -396,10 +470,28 @@ Tasks:
         name: 'project',
         path: '.',
         spec: null,
+        specs: [],
         type: 'directory',
       },
+      rootDirectoryPath: targetDirectoryPath,
       targetDirectoryPath,
+      targetPath: targetDirectoryPath,
       warningCount: 0,
+    });
+  });
+
+  it('defaults to the current directory when no target path is requested', async () => {
+    const currentDirectoryPath = resolve('.');
+    const { specLinter } = createSpecLinter({
+      directories: [
+        currentDirectoryPath,
+      ],
+    });
+
+    await expect(specLinter.lint({})).resolves.toMatchObject({
+      rootDirectoryPath: currentDirectoryPath,
+      targetDirectoryPath: currentDirectoryPath,
+      targetPath: currentDirectoryPath,
     });
   });
 
@@ -434,22 +526,199 @@ Tasks:
     }
   });
 
-  it('raises when the target path is missing or is not a directory', async () => {
+  it('raises when the target path is missing', async () => {
     await expect(createSpecLinter({
       directories: [],
       existingPaths: [],
     }).specLinter.lint({
       targetDirectoryPath,
     })).rejects.toBeInstanceOf(SpecLintTargetNotFoundError);
+  });
+
+  it('accepts ordinary file targets with and without same-basename specs', async () => {
+    const targetFilePath = join(targetDirectoryPath, 'src', 'feature.ts');
+    const files = {
+      [join(targetDirectoryPath, 'project.sdd')]: specContent('App', 'Own app.'),
+      [join(targetDirectoryPath, 'src', 'src.sdd')]: specContent('Source', 'Own source.'),
+      [join(targetDirectoryPath, 'src', 'feature.sdd')]: specContent('Feature', 'Own feature.'),
+      [targetFilePath]: 'export {};\n',
+    };
+    const { specLinter } = createSpecLinter({
+      directories: [
+        targetDirectoryPath,
+        join(targetDirectoryPath, 'src'),
+      ],
+      files,
+      findSpecPaths: async () => [
+        'project.sdd',
+        'src/feature.sdd',
+        'src/src.sdd',
+      ],
+    });
+
+    await expect(specLinter.lint({
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: targetFilePath,
+    })).resolves.toMatchObject({
+      diagnostics: [],
+      filesChecked: 3,
+      rootDirectoryPath: targetDirectoryPath,
+      targetDirectoryPath: join(targetDirectoryPath, 'src'),
+      targetPath: targetFilePath,
+    });
+
+    await expect(createSpecLinter({
+      directories: [
+        targetDirectoryPath,
+        join(targetDirectoryPath, 'src'),
+      ],
+      files: {
+        [join(targetDirectoryPath, 'project.sdd')]: specContent('App', 'Own app.'),
+        [join(targetDirectoryPath, 'src', 'src.sdd')]: specContent('Source', 'Own source.'),
+        [targetFilePath]: 'export {};\n',
+      },
+      findSpecPaths: async () => [
+        'project.sdd',
+        'src/src.sdd',
+      ],
+    }).specLinter.lint({
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: targetFilePath,
+    })).resolves.toMatchObject({
+      diagnostics: [],
+      filesChecked: 2,
+    });
+  });
+
+  it('accepts .sdd targets and resolves upward context', async () => {
+    const targetSpecPath = join(targetDirectoryPath, 'src', 'feature.sdd');
+    const { specLinter } = createSpecLinter({
+      directories: [
+        targetDirectoryPath,
+        join(targetDirectoryPath, 'src'),
+      ],
+      files: {
+        [join(targetDirectoryPath, 'project.sdd')]: specContent('App', 'Own app.'),
+        [join(targetDirectoryPath, 'src', 'src.sdd')]: specContent('Source', 'Own source.'),
+        [targetSpecPath]: specContent('Feature', 'Own feature.'),
+      },
+      findSpecPaths: async () => [
+        'project.sdd',
+        'src/feature.sdd',
+        'src/src.sdd',
+      ],
+    });
+
+    await expect(specLinter.lint({
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: targetSpecPath,
+    })).resolves.toMatchObject({
+      diagnostics: [],
+      filesChecked: 3,
+      targetDirectoryPath: join(targetDirectoryPath, 'src'),
+      targetPath: targetSpecPath,
+    });
+  });
+
+  it('falls back to the target root when the requested root is outside the target', async () => {
+    const { specLinter } = createSpecLinter({
+      files: {
+        [join(targetDirectoryPath, 'project.sdd')]: specContent('App'),
+      },
+      findSpecPaths: async () => [
+        'project.sdd',
+      ],
+    });
+
+    await expect(specLinter.lint({
+      rootDirectoryPath: resolve('/workspace/other'),
+      targetDirectoryPath,
+    })).resolves.toMatchObject({
+      filesChecked: 1,
+      rootDirectoryPath: targetDirectoryPath,
+    });
+  });
+
+  it('raises when the requested root is missing or not a directory', async () => {
+    const targetFilePath = join(targetDirectoryPath, 'feature.ts');
+
+    await expect(createSpecLinter({
+      directories: [],
+      existingPaths: [
+        targetFilePath,
+      ],
+    }).specLinter.lint({
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: targetFilePath,
+    })).rejects.toBeInstanceOf(SpecLintTargetNotFoundError);
 
     await expect(createSpecLinter({
       directories: [],
       existingPaths: [
         targetDirectoryPath,
+        targetFilePath,
       ],
     }).specLinter.lint({
-      targetDirectoryPath,
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: targetFilePath,
     })).rejects.toBeInstanceOf(SpecLintTargetNotDirectoryError);
+  });
+
+  it('wraps requested root lookup failures as discovery errors', async () => {
+    const targetFilePath = join(targetDirectoryPath, 'feature.ts');
+    const fileSystem = new DirectoryContextLookupFailureFileSystem(targetDirectoryPath, {
+      directories: [],
+      files: {
+        [targetFilePath]: 'export {};\n',
+      },
+    });
+    const specLinter = new SpecLinter(
+      fileSystem,
+      new SpecParser(fileSystem),
+      async () => [],
+    );
+
+    await expect(specLinter.lint({
+      rootDirectoryPath: targetDirectoryPath,
+      targetPath: targetFilePath,
+    })).rejects.toThrow(SpecLintDiscoveryError);
+  });
+
+  it('reports ambiguous ordinary file target specs as diagnostics', async () => {
+    const targetFilePath = join(targetDirectoryPath, 'Feature.ts');
+    const { specLinter } = createSpecLinter({
+      files: {
+        [targetFilePath]: 'export {};\n',
+        [join(targetDirectoryPath, 'FEATURE.sdd')]: specContent('Upper Feature'),
+        [join(targetDirectoryPath, 'feature.sdd')]: specContent('Lower Feature'),
+      },
+      findSpecPaths: async () => [
+        'FEATURE.sdd',
+        'feature.sdd',
+      ],
+    });
+
+    const result = await specLinter.lint({
+      targetPath: targetFilePath,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.map((diagnostic) => [
+      diagnostic.path,
+      diagnostic.code,
+    ])).toEqual([
+      [
+        'FEATURE.sdd',
+        'target-spec',
+      ],
+      [
+        'feature.sdd',
+        'target-spec',
+      ],
+    ]);
+    expect(result.diagnostics[0]?.message).toBe(
+      'Ambiguous target SpecDD specs for Feature.ts: FEATURE.sdd, feature.sdd',
+    );
   });
 
   it('wraps target validation and discovery failures', async () => {
@@ -472,5 +741,27 @@ Tasks:
     }).specLinter.lint({
       targetDirectoryPath,
     })).rejects.toThrow('Failed to discover SpecDD specs under /workspace/project: Error: glob failed');
+  });
+
+  it('wraps directory context lookup failures as discovery errors', async () => {
+    const fileSystem = new DirectoryContextLookupFailureFileSystem(join(targetDirectoryPath, 'feature'), {
+      directories: [
+        targetDirectoryPath,
+      ],
+      files: {
+        [join(targetDirectoryPath, 'feature.sdd')]: specContent('Feature'),
+      },
+    });
+    const specLinter = new SpecLinter(
+      fileSystem,
+      new SpecParser(fileSystem),
+      async () => [
+        'feature.sdd',
+      ],
+    );
+
+    await expect(specLinter.lint({
+      targetDirectoryPath,
+    })).rejects.toThrow('Failed to discover SpecDD specs under /workspace/project: Error: directory context lookup failed');
   });
 });

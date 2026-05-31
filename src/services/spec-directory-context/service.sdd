@@ -1,0 +1,36 @@
+Spec: Spec Directory Context Service
+Purpose:
+  Match SpecDD spec files to the directories they govern.
+
+Structure:
+  ./spec-directory-context.ts: Directory context matching implementation.
+  ./spec-directory-context.test.ts: Directory context matching tests.
+
+Owns:
+  ./spec-directory-context.ts
+  ./spec-directory-context.test.ts
+
+Must:
+  Expose @SpecDirectoryContext.match.
+  Accept normalized spec paths relative to a scan or resolve root.
+  Accept normalized directory paths relative to the same root.
+  Treat a spec inside a directory whose basename matches the directory basename as a local directory-level spec.
+  Treat a spec in a parent directory whose basename matches a child directory basename as a parent-held directory-level spec.
+  Treat exact basename matches as preferred over lowercase matches for each placement.
+  Treat parent-held and local directory-level specs for the same directory as cumulative context, not ambiguity.
+  Report ambiguous lowercase matches independently for parent-held and local placements.
+  Return directory context matches in broad-to-local order for each directory.
+  Use `.` as the root directory path.
+
+Must not:
+  Read files.
+  Modify files.
+  Parse spec contents.
+  Resolve soft links.
+  Format command output.
+
+Exposes:
+  @SpecDirectoryContext
+  @SpecDirectoryContext.match
+  @SpecDirectoryContextMatch
+  @SpecDirectoryContextAmbiguity

@@ -28,6 +28,7 @@ References:
   ./services/spec-linter/service.sdd
   ./services/spec-parser/service.sdd
   ./services/spec-resolver/service.sdd
+  ./services/spec-target-context/service.sdd
   ./services/spec-tree/service.sdd
   ./services/specdd-version/service.sdd
   ./services/agentskills/service.sdd
@@ -47,6 +48,7 @@ Must:
   Expose the @SpecLinter service.
   Expose the @SpecParser service.
   Expose the @SpecResolver service.
+  Expose the @SpecTargetContext service.
   Expose the @SpecTree service.
   Expose the @SpecDDVersion service.
   Expose the @BootstrapMetadata service.
@@ -79,6 +81,7 @@ Depends on:
   @SpecLinter
   @SpecParser
   @SpecResolver
+  @SpecTargetContext
   @SpecTree
   @SpecDDVersion
   @BootstrapMetadata
@@ -102,6 +105,7 @@ Exposes:
   @Container.specLinter
   @Container.specParser
   @Container.specResolver
+  @Container.specTargetContext
   @Container.specTree
   @Container.bootstrapMetadata
   @Container.agentSkills

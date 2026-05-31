@@ -3,7 +3,6 @@ import {
   basename,
   join,
   posix,
-  resolve,
 } from 'node:path';
 import { CliError } from '../../cli-error.js';
 import type {
@@ -15,9 +14,24 @@ import {
   SpecParserReadError,
   SpecParserSyntaxError,
 } from '../spec-parser/spec-parser.js';
+import {
+  type SpecDirectoryContextAmbiguity,
+  type SpecDirectoryContextMatch,
+} from '../spec-directory-context/spec-directory-context.js';
+import {
+  SpecTargetContext,
+  SpecTargetContextDiscoveryError,
+  SpecTargetContextRootNotDirectoryError,
+  SpecTargetContextRootNotFoundError,
+  type SpecTargetContextTarget,
+  type SpecTargetContextTargetSpecAmbiguity,
+  SpecTargetContextTargetNotFoundError,
+} from '../spec-target-context/spec-target-context.js';
 
 export type SpecLintRequest = {
-  readonly targetDirectoryPath: string;
+  readonly rootDirectoryPath?: string;
+  readonly targetDirectoryPath?: string;
+  readonly targetPath?: string;
 };
 
 export type SpecLintSeverity = 'error' | 'warning';
@@ -43,13 +57,16 @@ export type SpecLintDirectoryNode = {
   readonly name: string;
   readonly path: string;
   readonly spec: SpecLintSpecNode | null;
+  readonly specs: readonly SpecLintSpecNode[];
   readonly children: readonly SpecLintNode[];
 };
 
 export type SpecLintNode = SpecLintDirectoryNode | SpecLintSpecNode;
 
 export type SpecLintResult = {
+  readonly rootDirectoryPath: string;
   readonly targetDirectoryPath: string;
+  readonly targetPath: string;
   readonly ok: boolean;
   readonly filesChecked: number;
   readonly errorCount: number;
@@ -71,18 +88,41 @@ type SpecLintParsedSpec = {
   readonly path: string;
 };
 
+type SpecLintTarget = SpecTargetContextTarget;
+
+type SpecLintTargetPlan = {
+  readonly relativeSpecPaths: readonly string[];
+  readonly rootDirectoryPath: string;
+  readonly target: SpecLintTarget;
+  readonly targetSpecAmbiguities: readonly SpecTargetContextTargetSpecAmbiguity[];
+};
+
+type SpecLintTargetContextDependency = Pick<
+  SpecTargetContext,
+  | 'contextSpecPaths'
+  | 'directoryContextMatches'
+  | 'normalizeRelativePath'
+  | 'recursiveSpecPaths'
+  | 'resolvePreferredRootDirectoryPath'
+  | 'resolveTarget'
+  | 'targetSpecPaths'
+  | 'uniqueSortedSpecPaths'
+>;
+
+type MutableSpecLintNode = MutableSpecLintDirectoryNode | SpecLintSpecNode;
+
 type MutableSpecLintDirectoryNode = {
   readonly type: 'directory';
   readonly name: string;
   readonly path: string;
-  spec: SpecLintSpecNode | null;
-  readonly children: SpecLintNode[];
+  readonly specs: SpecLintSpecNode[];
+  readonly children: MutableSpecLintNode[];
   readonly directoryChildren: Map<string, MutableSpecLintDirectoryNode>;
 };
 
 export class SpecLintTargetNotFoundError extends CliError {
   public constructor(path: string) {
-    super(`Spec lint target directory not found: ${path}`);
+    super(`Spec lint target not found: ${path}`);
     this.name = 'SpecLintTargetNotFoundError';
   }
 }
@@ -102,30 +142,32 @@ export class SpecLintDiscoveryError extends CliError {
 }
 
 export class SpecLinter {
-  private readonly fileSystem: SpecLintFileSystemDependency;
-
   private readonly specParser: SpecLintSpecParserDependency;
 
   private readonly findSpecPaths: SpecLintPathFinder;
+
+  private readonly targetContext: SpecLintTargetContextDependency;
 
   public constructor(
     fileSystem: SpecLintFileSystemDependency,
     specParser: SpecLintSpecParserDependency,
     findSpecPaths: SpecLintPathFinder = SpecLinter.findSpecPaths,
+    targetContext: SpecLintTargetContextDependency = new SpecTargetContext(fileSystem),
   ) {
-    this.fileSystem = fileSystem;
     this.specParser = specParser;
     this.findSpecPaths = findSpecPaths;
+    this.targetContext = targetContext;
   }
 
   public async lint(request: SpecLintRequest): Promise<SpecLintResult> {
-    const targetDirectoryPath = resolve(request.targetDirectoryPath);
+    const target = await this.resolveTarget(request.targetPath ?? request.targetDirectoryPath ?? '.');
+    const rootDirectoryPath = await this.resolveRootDirectoryPath(request.rootDirectoryPath, target);
+    const targetPlan = await this.discoverTargetPlan(rootDirectoryPath, target);
+    const parsedSpecs = await this.parseSpecs(rootDirectoryPath, targetPlan.relativeSpecPaths);
 
-    await this.validateTargetDirectory(targetDirectoryPath);
+    this.addTargetSpecDiagnostics(parsedSpecs, targetPlan.targetSpecAmbiguities);
 
-    const relativeSpecPaths = await this.discoverSpecPaths(targetDirectoryPath);
-    const parsedSpecs = await this.parseSpecs(targetDirectoryPath, relativeSpecPaths);
-    const directoryLevelSpecPaths = this.directoryLevelSpecPaths(targetDirectoryPath, parsedSpecs);
+    const directoryContextMatches = await this.directoryContextMatches(rootDirectoryPath, parsedSpecs);
     const diagnostics = parsedSpecs.flatMap((parsedSpec) => parsedSpec.diagnostics);
     const errorCount = diagnostics.filter((diagnostic) => 'error' === diagnostic.severity).length;
     const warningCount = diagnostics.filter((diagnostic) => 'warning' === diagnostic.severity).length;
@@ -135,34 +177,32 @@ export class SpecLinter {
       errorCount,
       filesChecked: parsedSpecs.length,
       ok: 0 === errorCount,
-      root: this.buildRootNode(targetDirectoryPath, parsedSpecs, directoryLevelSpecPaths),
-      targetDirectoryPath,
+      root: this.buildRootNode(rootDirectoryPath, parsedSpecs, directoryContextMatches),
+      rootDirectoryPath,
+      targetDirectoryPath: target.directoryPath,
+      targetPath: target.path,
       warningCount,
     };
   }
 
-  private async validateTargetDirectory(targetDirectoryPath: string): Promise<void> {
-    let targetExists: boolean;
-    let targetIsDirectory: boolean;
-
+  private async resolveTarget(targetPath: string): Promise<SpecLintTarget> {
     try {
-      targetExists = await this.fileSystem.exists(targetDirectoryPath);
+      return await this.targetContext.resolveTarget(targetPath);
     } catch (error) {
-      throw new SpecLintDiscoveryError(targetDirectoryPath, String(error));
+      this.raiseTargetContextError(error);
+      throw error;
     }
+  }
 
-    if (!targetExists) {
-      throw new SpecLintTargetNotFoundError(targetDirectoryPath);
-    }
-
+  private async resolveRootDirectoryPath(
+    requestedRootDirectoryPath: string | undefined,
+    target: SpecLintTarget,
+  ): Promise<string> {
     try {
-      targetIsDirectory = await this.fileSystem.isDirectory(targetDirectoryPath);
+      return await this.targetContext.resolvePreferredRootDirectoryPath(requestedRootDirectoryPath, target);
     } catch (error) {
-      throw new SpecLintDiscoveryError(targetDirectoryPath, String(error));
-    }
-
-    if (!targetIsDirectory) {
-      throw new SpecLintTargetNotDirectoryError(targetDirectoryPath);
+      this.raiseTargetContextError(error);
+      throw error;
     }
   }
 
@@ -170,10 +210,34 @@ export class SpecLinter {
     try {
       return [
         ...(await this.findSpecPaths(targetDirectoryPath)),
-      ].map((path) => this.normalizeRelativePath(path)).sort();
+      ].map((path) => this.targetContext.normalizeRelativePath(path)).sort();
     } catch (error) {
       throw new SpecLintDiscoveryError(targetDirectoryPath, String(error));
     }
+  }
+
+  private async discoverTargetPlan(
+    rootDirectoryPath: string,
+    target: SpecLintTarget,
+  ): Promise<SpecLintTargetPlan> {
+    const allRelativeSpecPaths = await this.discoverSpecPaths(rootDirectoryPath);
+    const contextResult = this.targetContext.contextSpecPaths(rootDirectoryPath, target.directoryPath, allRelativeSpecPaths);
+    const targetSpecResult = this.targetContext.targetSpecPaths(rootDirectoryPath, target, allRelativeSpecPaths);
+    const recursiveSpecPaths = 'directory' === target.kind
+      ? this.targetContext.recursiveSpecPaths(rootDirectoryPath, target.path, allRelativeSpecPaths)
+      : [];
+
+    return {
+      relativeSpecPaths: this.targetContext.uniqueSortedSpecPaths([
+        ...contextResult.matches.map((match) => match.specPath),
+        ...contextResult.ambiguities.flatMap((ambiguity) => ambiguity.specPaths),
+        ...targetSpecResult.specPaths,
+        ...recursiveSpecPaths,
+      ]),
+      rootDirectoryPath,
+      target,
+      targetSpecAmbiguities: targetSpecResult.ambiguities,
+    };
   }
 
   private async parseSpecs(
@@ -237,102 +301,93 @@ export class SpecLinter {
     };
   }
 
-  private directoryLevelSpecPaths(
-    targetDirectoryPath: string,
+  private addTargetSpecDiagnostics(
     parsedSpecs: readonly SpecLintParsedSpec[],
-  ): Set<string> {
-    const specsByDirectoryPath = this.groupSpecsByDirectoryPath(parsedSpecs);
-    const directoryLevelSpecPaths = new Set<string>();
+    ambiguities: readonly SpecTargetContextTargetSpecAmbiguity[],
+  ): void {
+    const parsedSpecsByPath = new Map(parsedSpecs.map((parsedSpec) => [
+      parsedSpec.path,
+      parsedSpec,
+    ]));
 
-    for (const [directoryPath, specs] of specsByDirectoryPath.entries()) {
-      const directoryBasename = this.directoryBasename(targetDirectoryPath, directoryPath);
-      const directoryLevelSpec = this.directoryLevelSpec(directoryPath, directoryBasename, specs);
+    for (const ambiguity of ambiguities) {
+      const message = `Ambiguous target SpecDD specs for ${ambiguity.targetPath}: ${ambiguity.specPaths.join(', ')}`;
 
-      if (null !== directoryLevelSpec) {
-        directoryLevelSpecPaths.add(directoryLevelSpec.path);
-      }
-    }
-
-    return directoryLevelSpecPaths;
-  }
-
-  private groupSpecsByDirectoryPath(
-    parsedSpecs: readonly SpecLintParsedSpec[],
-  ): ReadonlyMap<string, readonly SpecLintParsedSpec[]> {
-    const specsByDirectoryPath = new Map<string, SpecLintParsedSpec[]>();
-
-    for (const parsedSpec of parsedSpecs) {
-      specsByDirectoryPath.set(parsedSpec.directoryPath, [
-        ...(specsByDirectoryPath.get(parsedSpec.directoryPath) ?? []),
-        parsedSpec,
-      ]);
-    }
-
-    return specsByDirectoryPath;
-  }
-
-  private directoryBasename(targetDirectoryPath: string, directoryPath: string): string {
-    if ('.' === directoryPath) {
-      return basename(targetDirectoryPath);
-    }
-
-    return posix.basename(directoryPath);
-  }
-
-  private directoryLevelSpec(
-    directoryPath: string,
-    directoryBasename: string,
-    specs: readonly SpecLintParsedSpec[],
-  ): SpecLintParsedSpec | null {
-    const exactMatch = specs.find((spec) => this.specBasename(spec) === directoryBasename);
-
-    if (undefined !== exactMatch) {
-      return exactMatch;
-    }
-
-    const lowercaseMatches = specs.filter((spec) => this.specBasename(spec).toLowerCase() === directoryBasename.toLowerCase());
-
-    if (1 < lowercaseMatches.length) {
-      const message = `Ambiguous directory-level SpecDD specs for ${directoryPath}: ${lowercaseMatches.map((spec) => spec.path).join(', ')}`;
-
-      for (const spec of lowercaseMatches) {
-        spec.diagnostics.push({
-          code: 'directory-spec',
+      for (const specPath of ambiguity.specPaths) {
+        parsedSpecsByPath.get(specPath)?.diagnostics.push({
+          code: 'target-spec',
           message,
-          path: spec.path,
+          path: specPath,
           severity: 'error',
         });
       }
-
-      return null;
     }
-
-    return lowercaseMatches[0] ?? null;
   }
 
-  private specBasename(spec: SpecLintParsedSpec): string {
-    return spec.name.slice(0, -'.sdd'.length);
+  private async directoryContextMatches(
+    rootDirectoryPath: string,
+    parsedSpecs: readonly SpecLintParsedSpec[],
+  ): Promise<readonly SpecDirectoryContextMatch[]> {
+    let result;
+
+    try {
+      result = await this.targetContext.directoryContextMatches(rootDirectoryPath, parsedSpecs);
+    } catch (error) {
+      throw new SpecLintDiscoveryError(rootDirectoryPath, (error as SpecTargetContextDiscoveryError).reason);
+    }
+
+    this.addDirectorySpecDiagnostics(parsedSpecs, result.ambiguities);
+
+    return result.matches;
+  }
+
+  private addDirectorySpecDiagnostics(
+    parsedSpecs: readonly SpecLintParsedSpec[],
+    ambiguities: readonly SpecDirectoryContextAmbiguity[],
+  ): void {
+    const parsedSpecsByPath = new Map(parsedSpecs.map((parsedSpec) => [
+      parsedSpec.path,
+      parsedSpec,
+    ]));
+
+    for (const ambiguity of ambiguities) {
+      const message = `Ambiguous directory-level SpecDD specs for ${ambiguity.directoryPath}: ${ambiguity.specPaths.join(', ')}`;
+
+      for (const specPath of ambiguity.specPaths) {
+        parsedSpecsByPath.get(specPath)?.diagnostics.push({
+          code: 'directory-spec',
+          message,
+          path: specPath,
+          severity: 'error',
+        });
+      }
+    }
   }
 
   private buildRootNode(
     targetDirectoryPath: string,
     parsedSpecs: readonly SpecLintParsedSpec[],
-    directoryLevelSpecPaths: ReadonlySet<string>,
+    directoryContextMatches: readonly SpecDirectoryContextMatch[],
   ): SpecLintDirectoryNode {
     const root = this.createMutableDirectoryNode('.', basename(targetDirectoryPath));
+    const parsedSpecByPath = new Map(parsedSpecs.map((parsedSpec) => [
+      parsedSpec.path,
+      parsedSpec,
+    ]));
+    const directoryLevelSpecPaths = new Set(directoryContextMatches.map((match) => match.specPath));
+
+    for (const match of directoryContextMatches) {
+      const parsedSpec = parsedSpecByPath.get(match.specPath) as SpecLintParsedSpec;
+
+      this.directoryNode(root, match.directoryPath).specs.push(this.specNode(parsedSpec, true));
+    }
 
     for (const parsedSpec of parsedSpecs) {
-      const directoryNode = this.directoryNode(root, parsedSpec.directoryPath);
-      const isDirectoryLevel = directoryLevelSpecPaths.has(parsedSpec.path);
-      const specNode = this.specNode(parsedSpec, isDirectoryLevel);
-
-      if (isDirectoryLevel) {
-        directoryNode.spec = specNode;
-
+      if (directoryLevelSpecPaths.has(parsedSpec.path)) {
         continue;
       }
 
-      directoryNode.children.push(specNode);
+      this.directoryNode(root, parsedSpec.directoryPath).children.push(this.specNode(parsedSpec, false));
     }
 
     return this.toDirectoryNode(root);
@@ -380,41 +435,51 @@ export class SpecLinter {
       directoryChildren: new Map(),
       name,
       path,
-      spec: null,
+      specs: [],
       type: 'directory',
     };
   }
 
   private toDirectoryNode(node: MutableSpecLintDirectoryNode): SpecLintDirectoryNode {
+    const specs = [
+      ...node.specs,
+    ];
+
     return {
       children: node.children.sort((left, right) => left.path.localeCompare(right.path)).map((child) => {
         if ('directory' === child.type) {
-          return this.toDirectoryNode(child as MutableSpecLintDirectoryNode);
+          return this.toDirectoryNode(child);
         }
 
         return child;
       }),
       name: node.name,
       path: node.path,
-      spec: node.spec,
+      spec: specs[0] ?? null,
+      specs,
       type: 'directory',
     };
   }
 
-  private normalizeRelativePath(path: string): string {
-    const normalizedPath = path.replaceAll('\\', '/');
-
-    if (normalizedPath.startsWith('./')) {
-      return normalizedPath.slice(2);
+  private raiseTargetContextError(error: unknown): void {
+    if (error instanceof SpecTargetContextTargetNotFoundError || error instanceof SpecTargetContextRootNotFoundError) {
+      throw new SpecLintTargetNotFoundError(error.path);
     }
 
-    return normalizedPath;
+    if (error instanceof SpecTargetContextRootNotDirectoryError) {
+      throw new SpecLintTargetNotDirectoryError(error.path);
+    }
+
+    if (error instanceof SpecTargetContextDiscoveryError) {
+      throw new SpecLintDiscoveryError(error.path, error.reason);
+    }
   }
 
   private static async findSpecPaths(targetDirectoryPath: string): Promise<readonly string[]> {
     return fg('**/*.sdd', {
       cwd: targetDirectoryPath,
       dot: true,
+      followSymbolicLinks: false,
       onlyFiles: true,
       unique: true,
     });

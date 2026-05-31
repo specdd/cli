@@ -2,7 +2,10 @@ import { posix, relative, resolve } from 'node:path';
 import { Command } from 'commander';
 import { CliError } from '../cli-error.js';
 import { CLI_HELP_FOOTER } from '../constants.js';
-import type { SpecSection } from '../services/spec-parser/spec-parser.js';
+import {
+  SPEC_SECTION_NAMES,
+  type SpecSection,
+} from '../services/spec-parser/spec-parser.js';
 import type {
   SpecResolveDirectoryNode,
   SpecResolveLinkDepth,
@@ -148,6 +151,10 @@ export const resolveResolveSectionNames = (
     return undefined;
   }
 
+  if (sectionNames.some((sectionName) => 'all' === sectionName)) {
+    return SPEC_SECTION_NAMES;
+  }
+
   return sectionNames;
 };
 
@@ -217,18 +224,17 @@ const compactResolveDirectories = (
 };
 
 const compactResolveDirectory = (node: SpecResolveDirectoryNode): ResolveCompactDirectory | null => {
+  const directorySpecs = resolveDirectorySpecs(node);
   const specChildren = node.children.filter((child): child is SpecResolveSpecNode => 'spec' === child.type);
 
-  if ('.' !== node.path && null === node.spec && 0 === specChildren.length) {
+  if ('.' !== node.path && 0 === directorySpecs.length && 0 === specChildren.length) {
     return null;
   }
 
   return {
     path: renderResolveDirectoryPath(node.path),
     specs: [
-      ...(null === node.spec ? [] : [
-        compactResolveSpec(node.spec),
-      ]),
+      ...directorySpecs.map((spec) => compactResolveSpec(spec)),
       ...specChildren.map((child) => compactResolveSpec(child)),
     ],
   };
@@ -283,14 +289,10 @@ const renderResolveDirectoryBlocks = (result: SpecResolveResult): string[] => {
 };
 
 const flattenResolveTextSpecEntries = (node: SpecResolveDirectoryNode): readonly ResolveTextSpecEntry[] => {
-  const entries = [];
-
-  if (null !== node.spec) {
-    entries.push({
+  const entries = resolveDirectorySpecs(node).map((spec) => ({
       directoryPath: node.path,
-      spec: node.spec,
-    });
-  }
+      spec,
+    }));
 
   return [
     ...entries,
@@ -334,7 +336,7 @@ const resolveTextTargetDirectoryPath = (result: SpecResolveResult): string => {
     return targetSpec.directoryPath;
   }
 
-  const targetRelativePath = normalizeResolveTextPath(relative(result.rootDirectoryPath, result.targetPath));
+  const targetRelativePath = normalizeResolveTextPath(relative(result.rootDirectoryPath, result.targetDirectoryPath));
 
   if ('' === targetRelativePath) {
     return '.';
@@ -428,9 +430,11 @@ const groupResolveTextSpecEntries = (
 };
 
 const renderResolveDirectoryGroup = (group: ResolveTextDirectoryGroup): string => {
+  const duplicateNames = duplicateResolveSpecNames(group.specs.map((entry) => entry.spec));
+
   return [
     renderResolveDirectoryPath(group.directoryPath),
-    ...group.specs.flatMap((entry) => renderResolveSpec(entry.spec, 1)),
+    ...group.specs.flatMap((entry) => renderResolveSpec(entry.spec, 1, duplicateNames.has(entry.spec.name))),
   ].join('\n');
 };
 
@@ -442,12 +446,33 @@ const renderResolveDirectoryPath = (path: string): string => {
   return `/${path.split(posix.sep).join('/')}/`;
 };
 
-const renderResolveSpec = (node: SpecResolveSpecNode, depth: number): string[] => {
+const renderResolveSpec = (node: SpecResolveSpecNode, depth: number, usePathLabel: boolean): string[] => {
   return [
-    `${indent(depth)}${node.name}`,
+    `${indent(depth)}${usePathLabel ? node.path : node.name}`,
     ...renderResolveReasons(node.reasons, depth + 1),
     ...renderResolveSpecSections(node, depth + 1),
   ];
+};
+
+const resolveDirectorySpecs = (node: SpecResolveDirectoryNode): readonly SpecResolveSpecNode[] => {
+  return node.specs;
+};
+
+const duplicateResolveSpecNames = (specs: readonly SpecResolveSpecNode[]): ReadonlySet<string> => {
+  const seenNames = new Set<string>();
+  const duplicateNames = new Set<string>();
+
+  for (const spec of specs) {
+    if (seenNames.has(spec.name)) {
+      duplicateNames.add(spec.name);
+
+      continue;
+    }
+
+    seenNames.add(spec.name);
+  }
+
+  return duplicateNames;
 };
 
 const renderResolveReasons = (reasons: readonly SpecResolveReason[], depth: number): string[] => {
@@ -544,10 +569,10 @@ export const createResolveCommand = (
 
   command
     .description('Resolve relevant SpecDD specs for a target path.')
-    .argument('<target>', 'Directory or .sdd file to resolve.')
+    .argument('<target>', 'Directory, .sdd file, or ordinary file to resolve.')
     .option('--root <path>', 'Root directory for resolution. Defaults to the current directory.')
-    .option('--section <name>', 'Section to include. May be repeated.', collectResolveSectionOption, [])
-    .option('--sections <names>', 'Comma-separated sections to include.')
+    .option('--section <name>', 'Section to include, or all. May be repeated.', collectResolveSectionOption, [])
+    .option('--sections <names>', 'Comma-separated sections to include, or all.')
     .option('--depth <depth>', 'Soft-link expansion depth: non-negative integer or all.', '2')
     .option('--format <format>', 'Output format: text, json, or json-extended.', 'text')
     .addHelpText(

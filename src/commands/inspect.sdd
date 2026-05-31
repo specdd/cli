@@ -21,23 +21,27 @@ Must:
   Accept an optional target path argument.
   Resolve a missing target path to the current working directory.
   Resolve a relative target path against the current working directory.
-  Pass an absolute target path through as the target directory.
+  Pass an absolute target path through as the target path.
+  Pass the current working directory as the preferred root directory.
   Accept repeated --section options.
   Accept comma-separated --sections option.
+  Treat all in --section or --sections as every canonical SpecDD section.
   Default requested sections through @SpecTree when no section options are provided.
   Accept --format json, --format json-extended, and --format text.
   Default output format to text.
   Reject unsupported output formats.
-  Call @SpecTree.build with the resolved target directory and requested section names.
+  Call @SpecTree.build with the resolved target path, preferred root directory, and requested section names.
   Render deterministic text output for humans.
   Render text output as scan-root absolute directory blocks.
   Render text directory headings as paths rooted at the scanned directory, such as /, /commands/, or /services/config/.
   Avoid deeply nested directory indentation in text output.
   Render text directory-level specs without extra marker suffixes.
+  Render duplicate spec file names in one directory block with their relative spec paths.
   Trim leading and trailing whitespace from rendered section body lines in text and compact JSON output.
   Drop leading and trailing empty body lines from text and compact JSON output.
   Render compact JSON output for machine consumers without parser metadata such as line numbers, body entries, or raw lines.
   Render compact JSON section bodies as arrays of trimmed body lines.
+  Include root directory path, target path, and target directory path in compact JSON output.
   Render json-extended output as the full @SpecTree result.
   Write rendered output to stdout.
   Include the project copyright notice in help output.

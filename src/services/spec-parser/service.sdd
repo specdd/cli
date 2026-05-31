@@ -65,6 +65,7 @@ Depends on:
   @FileSystem
 
 Exposes:
+  @SPEC_SECTION_NAMES
   @SpecParser
   @SpecParser.parseFile
   @SpecParser.parseContent

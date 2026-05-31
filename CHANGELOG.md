@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.1 - 2026-05-31
+
+### Changed
+
+- Treat parent-held and local directory-level specs as cumulative context in `inspect`, `resolve`, and `lint`.
+- Allow `inspect`, `resolve`, and `lint` to target directories, `.sdd` files, and ordinary files with upward context resolution.
+- Resolve ordinary file targets through same-basename `.sdd` specs when present, with case-insensitive matching and exact-name preference.
+- Resolve non-glob directory links to directory-level specs only; recursive descendant inclusion now requires an explicit glob.
+- Extract shared target, root, and directory context discovery for `inspect`, `resolve`, and `lint`.
+- Include resolved root and target path metadata in compact JSON output for `inspect` and `lint`.
+- Disable symlink traversal during `.sdd` discovery in `inspect`, `resolve`, and `lint`.
+- Rename the repository root spec to `cli.sdd` and use folder-basename root spec matching by convention.
+- Support `--sections all` and `--section all` in `inspect` and `resolve` to render every SpecDD section.
+
+### Fixed
+
+- Fix `resolve` help text and text relevance ordering for ordinary file targets without same-basename specs.
+- Follow explicit `resolve` links wrapped in common inline delimiters such as backticks, brackets, braces, or parentheses.
+- Follow explicit `resolve` links to ordinary files through same-basename `.sdd` specs when present.
+- Prevent broad non-glob directory links such as `./` from pulling unrelated specs from temporary or nested project folders.
+
 ## 1.1.0 - 2026-05-30
 
 ### Changed
