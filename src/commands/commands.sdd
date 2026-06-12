@@ -1,0 +1,33 @@
+Spec: CLI Command Handlers
+Purpose:
+  Provide shared constraints for SpecDD CLI command handler modules.
+
+Structure:
+  ./commands.sdd: Shared command handler specification.
+  ./*.sdd: Command-specific specifications.
+  ./*.ts: Command handler implementations.
+  ./*.test.ts: Command handler tests.
+
+Owns:
+  ./commands.sdd
+  command handler conventions
+
+References:
+  ../container.sdd
+
+Must:
+  Expose command factories that return commander @Command instances.
+  Receive command dependencies through command-specific container objects.
+  Describe command arguments and options in help output.
+  Set concise command descriptions for help output.
+  Include the project copyright notice in help output.
+  Include SpecDD framework and CLI project help links in help output.
+  Expose factories suitable for @Container wiring.
+
+Must not:
+  Construct application services.
+  Implement the CLI entrypoint.
+
+Depends on:
+  commander
+  @Container

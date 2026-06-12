@@ -11,7 +11,7 @@ Owns:
   ./specdd-version.test.ts
 
 References:
-  ../../constants.sdd
+  /src/constants.sdd
 
 Must:
   Accept dotted numeric versions such as 1.2 or 1.2.3.

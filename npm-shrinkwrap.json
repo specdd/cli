@@ -13,8 +13,7 @@
         "commander": "14.0.3",
         "fast-glob": "3.3.3",
         "jszip": "3.10.1",
-        "openpgp": "6.3.0",
-        "zod": "4.4.3"
+        "openpgp": "6.3.0"
       },
       "bin": {
         "specdd": "dist/main.js"
@@ -4693,13 +4692,6 @@
       },
       "funding": {
         "url": "https://github.com/sponsors/sindresorhus"
-      }
-    },
-    "node_modules/zod": {
-      "version": "4.4.3",
-      "license": "MIT",
-      "funding": {
-        "url": "https://github.com/sponsors/colinhacks"
       }
     }
   }

@@ -11,13 +11,10 @@ Owns:
   ./agentskills.test.ts
 
 References:
-  ../container.sdd
-  ../services/agentskills/service.sdd
+  ../services/agentskills/agentskills.sdd
 
 Must:
-  Expose a factory for the agentskills command group.
   Receive an @AgentSkillsCommandContainer dependency object.
-  Set concise command descriptions for help output.
   Expose a deploy subcommand.
   Accept an optional target path argument on deploy.
   Resolve a missing target path to the current working directory.
@@ -28,19 +25,12 @@ Must:
   Reject a target path when the user-home deploy option is set.
   Accept an optional release version option.
   Default the release version to latest.
-  Include the project copyright notice in help output.
-  Include SpecDD framework and CLI project help links in help output.
   Call @AgentSkills.deploy with the resolved target root directory and release version.
-  Support construction by @Container.
 
 Must not:
-  Construct application services.
   Download, verify, or apply Agent Skills releases directly.
-  Implement the CLI entrypoint.
 
 Depends on:
-  commander
-  @Container
   @AgentSkills
   Node.js path handling
   Node.js home directory handling
@@ -54,6 +44,3 @@ Accepts:
   optional target path
   optional user-home option
   optional release version
-
-Returns:
-  commander @Command

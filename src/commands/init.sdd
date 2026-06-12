@@ -11,34 +11,22 @@ Owns:
   ./init.test.ts
 
 References:
-  ../container.sdd
-  ../services/distribution-installer/service.sdd
+  ../services/distribution-installer/distribution-installer.sdd
 
 Must:
-  Expose a factory for the init command.
   Receive an @InitCommandContainer dependency object.
-  Set a concise command description for help output.
   Accept an optional target path argument.
-  Describe the optional target path argument in help output.
   Resolve a missing target path to the current working directory.
   Resolve a relative target path against the current working directory.
   Pass an absolute target path through as the target directory.
   Accept an optional release version option.
-  Describe the release version option in help output.
-  Include the project copyright notice in help output.
-  Include SpecDD framework and CLI project help links in help output.
   Default the release version to latest.
   Call @DistributionInstaller.init with the resolved target directory and release version.
-  Support construction by @Container.
 
 Must not:
-  Construct application services.
   Download, verify, or apply distributions directly.
-  Implement the CLI entrypoint.
 
 Depends on:
-  commander
-  @Container
   @DistributionInstaller
   Node.js path handling
 
@@ -49,6 +37,3 @@ Exposes:
 Accepts:
   optional target path
   optional release version
-
-Returns:
-  commander @Command

@@ -1,6 +1,6 @@
 Spec: Spec Target Context Service
 Purpose:
-  Resolve shared SpecDD target, root, and directory context discovery rules for commands and services.
+  Resolve shared SpecDD target, root, and directory context discovery rules.
 
 Structure:
   ./spec-target-context.ts: Target/root/context discovery implementation.
@@ -11,30 +11,30 @@ Owns:
   ./spec-target-context.test.ts
 
 References:
-  ../../cli-error.sdd
-  ../../infrastructure/file-system.sdd
-  ../spec-directory-context/service.sdd
+  /src/cli-error.sdd
+  /src/infrastructure/file-system.sdd
+  ../spec-directory-context/spec-directory-context.sdd
 
 Must:
   Expose @SpecTargetContext.
   Accept @FileSystem through constructor parameters.
   Validate that target paths exist.
   Classify targets as directory, .sdd spec file, or ordinary file.
-  Resolve optional preferred roots for inspect and lint without forcing an outside requested root.
-  Resolve required roots for resolve and reject targets outside the requested root.
+  Resolve optional preferred roots without forcing an outside requested root.
+  Resolve required roots and reject targets outside the requested root.
   Validate that requested roots exist and are directories.
   Return root-relative normalized spec paths.
   Use / as the normalized path separator.
   Use . as the root directory path.
   Include same-basename .sdd matches for ordinary file targets when present.
   Treat same-basename ordinary file target specs as case-insensitive matches, preferring exact filename matches.
-  Report ambiguous lowercase ordinary file target spec matches without formatting command-specific errors.
+  Report ambiguous lowercase ordinary file target spec matches without formatting caller-specific errors.
   Match upward directory-level context through @SpecDirectoryContext.
-  Match exact directory-level context for resolver directory steps through @SpecDirectoryContext.
+  Match exact directory-level context for directory-step context resolution through @SpecDirectoryContext.
   Match tree directory context for parsed spec sets through @SpecDirectoryContext.
   Recognize parent-held directory-level specs only when the governed path exists as a directory.
   Return parent-held and local directory-level specs as cumulative context.
-  Provide shared path helpers needed by inspect, lint, and resolve services.
+  Provide shared path helpers for target-aware spec discovery and resolution services.
 
 Must not:
   Modify files.

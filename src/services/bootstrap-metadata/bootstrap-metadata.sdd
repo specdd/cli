@@ -11,8 +11,8 @@ Owns:
   ./bootstrap-metadata.test.ts
 
 References:
-  ../../constants.sdd
-  ../../infrastructure/file-system.sdd
+  /src/constants.sdd
+  /src/infrastructure/file-system.sdd
 
 Must:
   Accept @FileSystem through the constructor.

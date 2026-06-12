@@ -11,15 +11,15 @@ Owns:
   ./agentskills.test.ts
 
 References:
-  ../../infrastructure/fetch-client.sdd
-  ../../infrastructure/file-system.sdd
-  ../../infrastructure/temp-directory.sdd
-  ../logger/service.sdd
-  ../signature-verifier/service.sdd
+  /src/infrastructure/fetch-client.sdd
+  /src/infrastructure/file-system.sdd
+  /src/infrastructure/temp-directory.sdd
+  ../logger/logger.sdd
+  ../signature-verifier/signature-verifier.sdd
 
 Must:
   Accept @Logger, @FetchClient, @FileSystem, @TempDirectory, and @SignatureVerifier through constructor parameters.
-  Expose @AgentSkills.deploy for the agentskills deploy command flow.
+  Expose @AgentSkills.deploy as the service API for Agent Skills deployment.
   Accept an explicit release version or latest.
   Use GitHub repository specdd/agentskills for release lookup.
   Treat explicit release versions as GitHub release tags.

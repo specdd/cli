@@ -4,44 +4,44 @@ Purpose:
   Provide the repository-level contract for the SpecDD CLI package, documentation, release automation, manual page, and source tree.
 
 Structure:
-  cli.sdd: Repository root specification.
-  .specdd/bootstrap.project.md: Project-specific SpecDD bootstrap overrides.
-  CHANGELOG.md: Release notes in Common Changelog format.
-  README.md: User-facing CLI usage documentation.
-  DEVELOPMENT.md: Contributor development documentation.
-  package.json: npm package manifest, binary mapping, scripts, dependencies, and packaged file allowlist.
-  Makefile: Development, package, and release automation.
-  man/specdd.1: Installed Unix manual page for the specdd CLI.
-  scripts/sync-man-version.mjs: Release helper that syncs and checks the man page version.
-  src/: TypeScript CLI application source tree.
-  src/src.sdd: Source tree specification.
+  ./cli.sdd: Repository root specification.
+  ./.specdd/bootstrap.project.md: Project-specific SpecDD bootstrap overrides.
+  ./CHANGELOG.md: Release notes in Common Changelog format.
+  ./README.md: User-facing CLI usage documentation.
+  ./DEVELOPMENT.md: Contributor development documentation.
+  ./package.json: npm package manifest, binary mapping, scripts, dependencies, and packaged file allowlist.
+  ./Makefile: Development, package, and release automation.
+  ./man/specdd.1: Installed Unix manual page for the specdd CLI.
+  ./scripts/sync-man-version.mjs: Release helper that syncs and checks the man page version.
+  ./src/: TypeScript CLI application source tree.
+  ./src/src.sdd: Source tree specification.
 
 Owns:
   ./
 
 Can modify:
-  cli.sdd
-  .specdd/bootstrap.project.md
-  CHANGELOG.md
-  README.md
-  DEVELOPMENT.md
-  package.json
-  Makefile
-  man/**
-  scripts/**
-  src/**
+  ./cli.sdd
+  ./.specdd/bootstrap.project.md
+  ./CHANGELOG.md
+  ./README.md
+  ./DEVELOPMENT.md
+  ./package.json
+  ./Makefile
+  ./man/**
+  ./scripts/**
+  ./src/**
 
 Can read:
-  cli.sdd
-  .specdd/*
-  CHANGELOG.md
-  README.md
-  DEVELOPMENT.md
-  package.json
-  Makefile
-  man/**
-  scripts/**
-  src/**
+  ./cli.sdd
+  ./.specdd/*
+  ./CHANGELOG.md
+  ./README.md
+  ./DEVELOPMENT.md
+  ./package.json
+  ./Makefile
+  ./man/**
+  ./scripts/**
+  ./src/**
 
 Must:
   Use TypeScript targeting the Node.js runtime declared by package.json.
@@ -63,7 +63,6 @@ Depends on:
   TypeScript
   commander
   fast-glob
-  zod
   chalk
   openpgp
   jszip

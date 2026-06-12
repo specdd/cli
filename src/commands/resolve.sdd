@@ -11,13 +11,10 @@ Owns:
   ./resolve.test.ts
 
 References:
-  ../container.sdd
-  ../services/spec-resolver/service.sdd
+  ../services/spec-resolver/spec-resolver.sdd
 
 Must:
-  Expose a factory for the resolve command.
   Receive a @ResolveCommandContainer dependency object.
-  Set a concise command description for help output.
   Accept a required target path argument.
   Accept --root to select the resolution root directory.
   Resolve a missing --root value to the current working directory.
@@ -48,19 +45,12 @@ Must:
   Render compact JSON section bodies as arrays of trimmed body lines.
   Render json-extended output as the full @SpecResolveResult.
   Write rendered output to stdout.
-  Include the project copyright notice in help output.
-  Include SpecDD framework and CLI project help links in help output.
-  Support construction by @Container.
 
 Must not:
-  Construct application services.
   Discover, parse, or validate spec files directly.
   Implement spec relevance logic.
-  Implement the CLI entrypoint.
 
 Depends on:
-  commander
-  @Container
   @SpecResolver
   Node.js path handling
   process stdout
@@ -82,6 +72,3 @@ Accepts:
   optional section names
   optional depth
   optional output format
-
-Returns:
-  commander @Command

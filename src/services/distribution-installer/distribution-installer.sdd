@@ -1,6 +1,6 @@
 Spec: Distribution Installer Service
 Purpose:
-  Coordinate downloading, verifying, and applying SpecDD distributions for init and update flows.
+  Coordinate downloading, verifying, and applying SpecDD distributions for project initialization and framework updates.
 
 Structure:
   ./distribution-installer.ts: Distribution installer service implementation.
@@ -11,20 +11,19 @@ Owns:
   ./distribution-installer.test.ts
 
 References:
-  ../../infrastructure/file-system.sdd
-  ../bootstrap-metadata/service.sdd
-  ../logger/service.sdd
-  ../specdd-version/service.sdd
-  ../distribution-client/service.sdd
-  ../signature-verifier/service.sdd
-  ../distribution-applier/service.sdd
+  /src/infrastructure/file-system.sdd
+  ../bootstrap-metadata/bootstrap-metadata.sdd
+  ../logger/logger.sdd
+  ../specdd-version/specdd-version.sdd
+  ../distribution-client/distribution-client.sdd
+  ../signature-verifier/signature-verifier.sdd
+  ../distribution-applier/distribution-applier.sdd
 
 Must:
   Accept @Logger, @FileSystem, @SpecDDVersion, @BootstrapMetadata, @DistributionClient, @SignatureVerifier, and @DistributionApplier through constructor parameters.
-  Expose @DistributionInstaller.init for the init command flow.
-  Expose @DistributionInstaller.update for the update command flow.
+  Expose @DistributionInstaller.init as the service API for project initialization.
+  Expose @DistributionInstaller.update as the service API for framework updates.
   Accept latest or a dotted numeric release version such as 1.2 or 1.2.3.
-  Reject release versions with a leading v and suggest the numeric value.
   Create a missing init target directory.
   Allow init in a directory that does not contain .specdd/bootstrap.md.
   Fail init when the target already contains .specdd/bootstrap.md.
@@ -37,8 +36,8 @@ Must:
   Check target state through @FileSystem before downloading.
   Download the requested distribution through @DistributionClient.
   Verify the downloaded zip and signature through @SignatureVerifier before applying files.
-  Apply the verified distribution through @DistributionApplier using init mode for init.
-  Apply the verified distribution through @DistributionApplier using update mode for update.
+  Apply the verified distribution through @DistributionApplier using initialization mode for project initialization.
+  Apply the verified distribution through @DistributionApplier using update mode for framework updates.
   Ensure .specdd/.gitignore exists after init.
   Preserve an existing .specdd/.gitignore.
   Invite the user to visit the updated bootstrap Changelog link after update applies files.
@@ -50,9 +49,6 @@ Must not:
   Depend on the distribution zip to contain .specdd/.gitignore.
   Overwrite an existing .specdd/.gitignore.
   Recreate .specdd/.gitignore during update when it is missing.
-  Print the Changelog invitation when update is not needed.
-  Print the Changelog invitation for init.
-  Treat update as an initializer for directories without .specdd.
 
 Depends on:
   @CliError

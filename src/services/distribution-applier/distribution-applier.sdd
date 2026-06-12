@@ -11,15 +11,14 @@ Owns:
   ./distribution-applier.test.ts
 
 References:
-  ../../infrastructure/file-system.sdd
-  ../logger/service.sdd
+  /src/infrastructure/file-system.sdd
+  ../logger/logger.sdd
 
 Must:
   Accept @Logger and @FileSystem through constructor parameters.
   Accept a path to a distribution .zip file, a target directory path, and an apply mode.
   Inspect file entries inside the zip archive.
   Check target file existence through @FileSystem before writing.
-  Explicitly create parent directories through @FileSystem before writing files.
   Write a missing zip file entry during init.
   During update, write a missing zip file entry only when the normalized relative path is .specdd/bootstrap.md.
   Overwrite an existing target file only when the normalized relative path is .specdd/bootstrap.md.
@@ -31,8 +30,6 @@ Must:
 
 Must not:
   Delete target files or directories.
-  Overwrite existing files other than .specdd/bootstrap.md.
-  Recreate missing or deleted non-bootstrap files during update.
   Write files outside the target directory.
   Execute unzip or any other external command.
 

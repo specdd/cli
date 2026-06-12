@@ -27,7 +27,7 @@ Must not:
   Modify files.
   Parse spec contents.
   Resolve soft links.
-  Format command output.
+  Format presentation output.
 
 Exposes:
   @SpecDirectoryContext

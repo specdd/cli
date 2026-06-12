@@ -11,14 +11,15 @@ Owns:
   ./update-checker.test.ts
 
 References:
-  ../bootstrap-metadata/service.sdd
-  ../logger/service.sdd
-  ../specdd-version/service.sdd
-  ../distribution-client/service.sdd
+  /src/constants.sdd
+  ../bootstrap-metadata/bootstrap-metadata.sdd
+  ../logger/logger.sdd
+  ../specdd-version/specdd-version.sdd
+  ../distribution-client/distribution-client.sdd
 
 Must:
   Accept @Logger, @DistributionClient, @SpecDDVersion, and @BootstrapMetadata through constructor parameters.
-  Expose @UpdateChecker.check for the check-update command flow.
+  Expose @UpdateChecker.check as the service API for update availability checks.
   Accept the current working directory as the target directory.
   Read local .specdd/bootstrap.md front matter Version through @BootstrapMetadata when the file exists.
   Resolve the latest release version through @DistributionClient without downloading assets.
@@ -28,7 +29,7 @@ Must:
   Validate local and latest release version values through @SpecDDVersion.
   Compare local Version with the latest release version through @SpecDDVersion when a local Version exists.
   Inform the user when the local Version is older than the latest release version.
-  Include https://specdd.ai/changelog/ when informing the user that an update is available.
+  Include @SPECDD_CHANGELOG_URL when informing the user that an update is available.
   Return whether an update is available.
   Return the local version when found.
   Return the latest remote version.
@@ -40,6 +41,7 @@ Must not:
 
 Depends on:
   @CliError
+  @SPECDD_CHANGELOG_URL
   @Logger
   @SpecDDVersion
   @BootstrapMetadata

@@ -11,31 +11,20 @@ Owns:
   ./update.test.ts
 
 References:
-  ../container.sdd
-  ../services/distribution-installer/service.sdd
+  ../services/distribution-installer/distribution-installer.sdd
 
 Must:
-  Expose a factory for the update command.
   Receive an @UpdateCommandContainer dependency object.
-  Set a concise command description for help output.
   Use the current working directory as the update target.
   Accept an optional release version option.
-  Describe the release version option in help output.
-  Include the project copyright notice in help output.
-  Include SpecDD framework and CLI project help links in help output.
   Default the release version to latest.
   Call @DistributionInstaller.update with the current working directory and release version.
-  Support construction by @Container.
 
 Must not:
-  Construct application services.
   Accept a target path argument.
   Download, verify, or apply distributions directly.
-  Implement the CLI entrypoint.
 
 Depends on:
-  commander
-  @Container
   @DistributionInstaller
 
 Exposes:
@@ -43,6 +32,3 @@ Exposes:
 
 Accepts:
   optional release version
-
-Returns:
-  commander @Command

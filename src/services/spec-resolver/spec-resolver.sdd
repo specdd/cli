@@ -1,0 +1,93 @@
+Spec: Spec Resolver Service
+Purpose:
+  Resolve relevant SpecDD specs for a target path by combining vertical context and bounded soft-link expansion.
+
+Structure:
+  ./spec-resolver.ts: Spec resolver service implementation.
+  ./spec-resolver.test.ts: Spec resolver service tests.
+
+Owns:
+  ./spec-resolver.ts
+  ./spec-resolver.test.ts
+
+References:
+  /src/cli-error.sdd
+  /src/infrastructure/file-system.sdd
+  ../spec-parser/spec-parser.sdd
+  ../spec-target-context/spec-target-context.sdd
+
+Must:
+  Accept @FileSystem and @SpecParser through constructor parameters.
+  Accept @SpecTargetContext through constructor parameters.
+  Expose @SpecResolver.resolve as the service API for spec relevance resolution.
+  Accept a root directory path, target path, optional section names, and soft-link depth.
+  Default requested sections to Purpose when no section names are provided.
+  Default soft-link depth to 2 when no depth is provided.
+  Use @SpecTargetContext for root/target validation, normalized paths, target spec selection, and vertical directory context.
+  Include the target spec and vertical directory context before soft-linked context.
+  Use the target spec file or target directory-level spec as the soft-link expansion anchor when available.
+  Follow soft links only from Owns, Can modify, Can read, References, Depends on, and Structure sections.
+  Follow only explicit local path references that begin with ./, ../, or /, including paths surrounded by common inline delimiters.
+  Resolve relative paths, rooted paths, globs, ordinary file links, and directory links according to SpecDD path-resolution rules.
+  Ignore outside-root paths, remote URLs, unprefixed filenames, prose, dependency names, symbols, and ordinary words as soft links.
+  Recursively expand soft links with cycle protection according to the requested depth.
+  Treat depth 0 as vertical context only.
+  Treat depth all as recursive soft-link expansion until exhausted.
+  Deduplicate specs by normalized path relative to the root directory.
+  Return resolved specs with relevance reasons, the resolved target directory path, a directory tree containing only resolved specs, and compact section lookups for requested sections.
+
+Must not:
+  Modify files.
+  Write to stdout or stderr.
+  Format human text output directly.
+  Format JSON output directly.
+  Read non-.sdd source files except through glob discovery results.
+  Resolve inherited spec chains beyond vertical directory-level context.
+  Expand soft links from every parent spec by default.
+
+Depends on:
+  @CliError
+  @FileSystem
+  @SpecParser
+  @SpecTargetContext
+  fast-glob
+
+Exposes:
+  @SpecResolver
+  @SpecResolver.resolve
+  @SpecResolveRequest
+  @SpecResolveResult
+  @SpecResolveReason
+  @SpecResolveSpecNode
+  @SpecResolveDirectoryNode
+
+Accepts:
+  @SpecResolveRequest
+
+Returns:
+  @SpecResolveResult
+
+Raises:
+  @SpecResolveRootNotFoundError
+  @SpecResolveRootNotDirectoryError
+  @SpecResolveTargetNotFoundError
+  @SpecResolveTargetOutsideRootError
+  @SpecResolveAmbiguousTargetSpecError
+  @SpecResolveAmbiguousDirectorySpecError
+  @SpecResolveDiscoveryError
+  @SpecResolveParseError
+
+Handles:
+  target context from @SpecTargetContext
+  missing target or root
+  target outside root
+  direct and recursive soft links
+  soft-link cycles
+  soft-link depth 0
+  soft-link depth all
+  local rooted and relative paths
+  glob paths
+  linked directories
+  linked ordinary files
+  outside-root and unsupported unprefixed path text
+  ignored Forbids and Exposes references

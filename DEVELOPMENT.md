@@ -111,7 +111,7 @@ src/container.sdd                   container spec
 src/commands                        command handlers
 src/infrastructure                  runtime adapters
 src/services                        application services
-src/services/*/service.sdd          service specs
+src/services/*/*.sdd                service specs named after service directories
 ```
 
 ## Development Commands
@@ -273,8 +273,8 @@ The package binary points to `dist/main.js`.
 ## Adding Behavior
 
 Start with the smallest relevant spec. For a new command, add a command spec and command module, then wire the command
-through `Container`. For a new service, add a service directory with its `service.sdd`, implementation, and focused
-tests.
+through `Container`. For a new service, add a service directory with a basename-matching `.sdd` spec, implementation,
+and focused tests.
 
 Keep boundaries explicit:
 

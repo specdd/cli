@@ -11,10 +11,10 @@ Owns:
   ./distribution-client.test.ts
 
 References:
-  ../../infrastructure/fetch-client.sdd
-  ../../infrastructure/file-system.sdd
-  ../../infrastructure/temp-directory.sdd
-  ../logger/service.sdd
+  /src/infrastructure/fetch-client.sdd
+  /src/infrastructure/file-system.sdd
+  /src/infrastructure/temp-directory.sdd
+  ../logger/logger.sdd
 
 Must:
   Accept @Logger, @FetchClient, @FileSystem, and @TempDirectory through constructor parameters.

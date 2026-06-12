@@ -13,8 +13,8 @@ Owns:
   ./signature-verifier.test.ts
 
 References:
-  ../../infrastructure/file-system.sdd
-  ../logger/service.sdd
+  /src/infrastructure/file-system.sdd
+  ../logger/logger.sdd
 
 Must:
   Accept @Logger and @FileSystem through constructor parameters.

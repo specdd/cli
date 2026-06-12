@@ -11,13 +11,10 @@ Owns:
   ./lint.test.ts
 
 References:
-  ../container.sdd
-  ../services/spec-linter/service.sdd
+  ../services/spec-linter/spec-linter.sdd
 
 Must:
-  Expose a factory for the lint command.
   Receive a @LintCommandContainer dependency object.
-  Set a concise command description for help output.
   Accept an optional target path argument.
   Resolve a missing target path to the current working directory.
   Resolve a relative target path against the current working directory.
@@ -36,22 +33,15 @@ Must:
   Render compact JSON output as directory blocks containing specs and diagnostics instead of sections.
   Include root directory path, target path, and target directory path in compact JSON output.
   Set the process exit code to 1 when lint errors are present.
-  Do not set a failure exit code when lint has no errors.
+  Leave the process exit code unchanged when lint has no errors.
   Write rendered output to stdout.
-  Include the project copyright notice in help output.
-  Include SpecDD framework and CLI project help links in help output.
-  Support construction by @Container.
 
 Must not:
-  Construct application services.
   Discover, parse, or validate spec files directly.
   Resolve inherited spec chains.
-  Implement the CLI entrypoint.
   Stop rendering after the first diagnostic.
 
 Depends on:
-  commander
-  @Container
   @SpecLinter
   Node.js path handling
   process stdout
@@ -67,6 +57,3 @@ Exposes:
 Accepts:
   optional target path
   optional output format
-
-Returns:
-  commander @Command

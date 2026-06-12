@@ -21,51 +21,31 @@ References:
   ./infrastructure/fetch-client.sdd
   ./infrastructure/file-system.sdd
   ./infrastructure/temp-directory.sdd
-  ./services/bootstrap-metadata/service.sdd
-  ./services/config/service.sdd
+  ./services/bootstrap-metadata/bootstrap-metadata.sdd
+  ./services/config/config.sdd
   ./services/config/readers/environment-reader.sdd
-  ./services/logger/service.sdd
-  ./services/spec-linter/service.sdd
-  ./services/spec-parser/service.sdd
-  ./services/spec-resolver/service.sdd
-  ./services/spec-target-context/service.sdd
-  ./services/spec-tree/service.sdd
-  ./services/specdd-version/service.sdd
-  ./services/agentskills/service.sdd
-  ./services/distribution-client/service.sdd
-  ./services/update-checker/service.sdd
-  ./services/signature-verifier/service.sdd
-  ./services/distribution-applier/service.sdd
-  ./services/distribution-installer/service.sdd
+  ./services/logger/logger.sdd
+  ./services/spec-linter/spec-linter.sdd
+  ./services/spec-parser/spec-parser.sdd
+  ./services/spec-resolver/spec-resolver.sdd
+  ./services/spec-target-context/spec-target-context.sdd
+  ./services/spec-tree/spec-tree.sdd
+  ./services/specdd-version/specdd-version.sdd
+  ./services/agentskills/agentskills.sdd
+  ./services/distribution-client/distribution-client.sdd
+  ./services/update-checker/update-checker.sdd
+  ./services/signature-verifier/signature-verifier.sdd
+  ./services/distribution-applier/distribution-applier.sdd
+  ./services/distribution-installer/distribution-installer.sdd
 
 Must:
   Construct shared service instances in one place.
   Construct infrastructure adapters in one place.
   Construct command instances in one place.
   Pass service dependencies through constructor parameters.
-  Expose the @Config service.
-  Expose the @Logger service.
-  Expose the @SpecLinter service.
-  Expose the @SpecParser service.
-  Expose the @SpecResolver service.
-  Expose the @SpecTargetContext service.
-  Expose the @SpecTree service.
-  Expose the @SpecDDVersion service.
-  Expose the @BootstrapMetadata service.
-  Expose the @DistributionClient service.
-  Expose the @UpdateChecker service.
-  Expose the @SignatureVerifier service.
-  Expose the @DistributionApplier service.
-  Expose the @DistributionInstaller service.
-  Expose the @AgentSkills service.
-  Expose the check-update command instance.
-  Expose the agentskills command instance.
-  Expose the init command instance.
-  Expose the lint command instance.
-  Expose the inspect command instance.
-  Expose the resolve command instance.
-  Expose the update command instance.
-  Let commands receive the @Container instance instead of constructing services directly.
+  Expose shared service instances through named @Container accessors.
+  Expose command instances through named @Container accessors.
+  Satisfy command-specific container objects with the @Container instance.
 
 Must not:
   Use autowiring, decorators, reflection, or a dependency injection framework.
@@ -101,18 +81,25 @@ Depends on:
 
 Exposes:
   @Container
+  @Container.config
+  @Container.logger
+  @Container.distributionClient
   @Container.specDDVersion
-  @Container.specLinter
   @Container.specParser
-  @Container.specResolver
   @Container.specTargetContext
+  @Container.specLinter
+  @Container.specResolver
   @Container.specTree
   @Container.bootstrapMetadata
+  @Container.updateChecker
+  @Container.signatureVerifier
+  @Container.distributionApplier
+  @Container.distributionInstaller
   @Container.agentSkills
-  @Container.checkUpdateCommand
   @Container.agentSkillsCommand
+  @Container.checkUpdateCommand
   @Container.initCommand
   @Container.lintCommand
-  @Container.inspectCommand
   @Container.resolveCommand
+  @Container.inspectCommand
   @Container.updateCommand

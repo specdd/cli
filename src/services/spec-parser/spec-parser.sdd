@@ -11,8 +11,8 @@ Owns:
   ./spec-parser.test.ts
 
 References:
-  ../../cli-error.sdd
-  ../../infrastructure/file-system.sdd
+  /src/cli-error.sdd
+  /src/infrastructure/file-system.sdd
 
 Must:
   Accept @FileSystem through the constructor.
@@ -48,7 +48,7 @@ Must:
   Return ordered sections and an exact-name section lookup of section arrays for callers.
   Represent a missing section as absent from the section lookup.
   Reject non-comment, nonblank content before the first section header.
-  Continue validation after syntax errors when collecting diagnostics for lint.
+  Continue validation after syntax errors when collecting diagnostics.
   Recover validation state from invalid inline text on known section headers.
   Return all visible syntax errors collected during validation.
 

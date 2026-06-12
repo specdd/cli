@@ -1,0 +1,87 @@
+Spec: Spec Linter Service
+Purpose:
+  Lint SpecDD .sdd files for a target path and return a tree-shaped diagnostic result.
+
+Structure:
+  ./spec-linter.ts: Spec linter service implementation.
+  ./spec-linter.test.ts: Spec linter service tests.
+
+Owns:
+  ./spec-linter.ts
+  ./spec-linter.test.ts
+
+References:
+  /src/cli-error.sdd
+  /src/infrastructure/file-system.sdd
+  ../spec-parser/spec-parser.sdd
+  ../spec-target-context/spec-target-context.sdd
+
+Must:
+  Accept @FileSystem and @SpecParser through constructor parameters.
+  Accept @SpecTargetContext through constructor parameters.
+  Expose @SpecLinter.lint as the service API for spec linting.
+  Accept a target path that may be a directory, .sdd spec file, or ordinary file.
+  Accept an optional root directory path for upward target-context resolution.
+  Use @SpecTargetContext for target classification, optional root resolution, and relevant target/context spec paths.
+  Discover .sdd files recursively under a directory target.
+  Include target and context spec paths selected by @SpecTargetContext.
+  Use relative paths from the root directory in returned lint nodes.
+  Sort discovered spec paths lexicographically by normalized relative path.
+  Validate every discovered spec file through @SpecParser.
+  Continue linting after individual spec parse or read failures.
+  Accumulate all visible parse diagnostics per spec.
+  Accumulate parse, read, and target-context diagnostics across all discovered specs.
+  Construct directory nodes from relative path segments.
+  Construct spec nodes for every discovered .sdd file, including malformed files.
+  Keep non-directory-level .sdd files in the containing directory node children.
+  Attach diagnostics to the affected spec node.
+  Return the resolved target directory path, ok flag, file count, diagnostic counts, tree root, and flat ordered diagnostics.
+  Return an empty clean result when no relevant .sdd files are found.
+
+Must not:
+  Modify files.
+  Write to stdout or stderr.
+  Format human text output directly.
+  Format JSON output directly.
+  Resolve inherited spec chains.
+  Follow References sections.
+  Read non-.sdd source file contents during discovery.
+  Stop after the first malformed .sdd file.
+  Stop after the first syntax error in an individual .sdd file.
+  Require optional sections such as Purpose, Must, Owns, or Can modify.
+
+Depends on:
+  @CliError
+  @FileSystem
+  @SpecParser
+  @SpecTargetContext
+  fast-glob
+
+Exposes:
+  @SpecLinter
+  @SpecLinter.lint
+  @SpecLintRequest
+  @SpecLintResult
+  @SpecLintDiagnostic
+  @SpecLintNode
+  @SpecLintSpecNode
+  @SpecLintDirectoryNode
+
+Accepts:
+  @SpecLintRequest
+
+Returns:
+  @SpecLintResult
+
+Raises:
+  @SpecLintTargetNotFoundError
+  @SpecLintTargetNotDirectoryError
+  @SpecLintDiscoveryError
+
+Handles:
+  missing or invalid target path
+  target directory without relevant .sdd files
+  target-context ambiguity diagnostics
+  multiple malformed .sdd files
+  multiple syntax errors in one .sdd file
+  unreadable .sdd file

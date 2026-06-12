@@ -1,7 +1,6 @@
 Spec: SpecDD CLI Source Tree
-Platform: TypeScript/Node.js/ESM
 Purpose:
-  Implement the SpecDD CLI application source code.
+  Contain the TypeScript source tree for the SpecDD CLI application.
 
 Structure:
   ./main.ts: CLI entrypoint source emitted as main.js.
@@ -16,18 +15,7 @@ Structure:
   ./infrastructure: Runtime adapters for platform APIs.
   ./infrastructure/*.sdd: Infrastructure adapter specification.
   ./services: Application services, with each service in its own directory.
-  ./services/agentskills: Agent Skills deployment service.
-  ./services/*/service.sdd: Service specification.
-  ./services/bootstrap-metadata: Shared bootstrap metadata service.
-  ./services/config: Shared configuration service.
-  ./services/logger: Shared CLI notice logger service.
-  ./services/spec-parser: Shared SpecDD spec parser service.
-  ./services/spec-directory-context: Shared SpecDD directory context matching service.
-  ./services/spec-target-context: Shared SpecDD target, root, and context discovery service.
-  ./services/spec-linter: Shared SpecDD spec lint service.
-  ./services/spec-resolver: SpecDD spec relevance resolution service.
-  ./services/spec-tree: SpecDD spec tree discovery service.
-  ./services/specdd-version: Shared SpecDD version service.
+  ./services/*/*.sdd: Service specifications named after their service directory.
   ./**/*.test.ts: Jest test suites.
   ./types: Local TypeScript declaration shims.
   ./types/*.sdd: Local TypeScript declaration shim specifications.
@@ -51,19 +39,9 @@ Must:
   Let commands access services through @Container.
   Keep shared paths, URLs, asset names, and common CLI text in ./constants.ts.
   Route service-originated CLI notices through the logger service.
-  Fully test and cover each function, service, and command with tests.
-
-Depends on:
-  commander
-  fast-glob
-  zod
-  chalk
-  openpgp
-  jszip
-  jest
 
 Exposes:
-  src/main.ts
-  src/container.ts
-  src/commands
-  src/services
+  ./main.ts
+  ./container.ts
+  ./commands
+  ./services
