@@ -1,0 +1,40 @@
+Spec: Plugin Signature Verifier
+
+Purpose:
+  Classify plugin signatures using pinned vendor keys or the local system's signing identity validity.
+
+Owns:
+  ./plugin-signature-verifier.ts
+  ./plugin-signature-verifier.test.ts
+
+References:
+  ../signature-verifier/signature-verifier.sdd
+  /src/infrastructure/gpg-client.sdd
+
+Must:
+  Accept @SignatureVerifier and @GpgClient through constructor parameters.
+  Accept exact plugin bytes, optional detached signature bytes, and optional `vendorOnly` verification policy.
+  Report an absent signature as unsigned without invoking either verification backend.
+  Accept a valid signature from a pinned vendor key without requiring GnuPG or local identity validity.
+  When `vendorOnly` is `true`, use only bundled-key verification, report a signer outside the bundled keys as `unknown-vendor`, and return other verification outcomes without invoking @GpgClient.
+  Otherwise use @GpgClient to distinguish accepted system signatures from valid signatures with insufficient identity validity and signatures that cannot be verified.
+  Preserve unknown, marginal, and never identity validity for caller warnings, as well as expiration, revocation, invalid signatures, missing keys, unavailable GnuPG, and verification failure reasons.
+  Propagate a bundled-key loading or fingerprint-pin failure instead of allowing confirmation to hide a broken trust configuration.
+  A known expired or revoked bundled primary key or signing subkey remains unverified without falling back to a potentially outdated local copy of that key.
+
+Exposes:
+  @PluginSignatureVerifier
+  @PluginSignatureVerifier.verify
+  @PluginSignatureResult
+  @PluginSignatureVerificationOptions
+
+Scenario: trusted vendor without GnuPG
+  Given the detached signature verifies with an eligible bundled key
+  When the plugin is verified
+  Then the result identifies the vendor fingerprint and GnuPG is not invoked
+
+Scenario: vendor-only policy
+  Given the signature is valid under a system-trusted key outside the bundled keys
+  When verification requires `vendorOnly`
+  Then the result is unverified with reason `unknown-vendor`
+  And GnuPG is not invoked

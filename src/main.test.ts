@@ -32,6 +32,10 @@ const createContainer = (calls: string[] = [], logger: FakeLogger = new FakeLogg
     inspectCommand: createCommand('inspect', calls),
     logger,
     lintCommand: createCommand('lint', calls),
+    pluginCommand: new Command('plugin')
+      .addCommand(createCommand('add', calls))
+      .addCommand(createCommand('list', calls))
+      .addCommand(createCommand('update', calls)),
     resolveCommand: createCommand('resolve', calls),
     updateCommand: createCommand('update', calls),
   };
@@ -91,6 +95,7 @@ describe('Main', () => {
       'init',
       'inspect',
       'lint',
+      'plugin',
       'resolve',
       'update',
     ]);
@@ -109,6 +114,12 @@ describe('Main', () => {
     expect(calls).toEqual([
       'init',
     ]);
+  });
+
+  it.each(['add', 'list', 'update',])('routes plugin %s through the injected group', async (name) => {
+    const calls: string[] = [];
+    await createMain(calls).run(['node', '/project/dist/main.js', 'plugin', name,]);
+    expect(calls).toEqual([name,]);
   });
 
   it('parses argv values and dispatches the agentskills command', async () => {
@@ -340,6 +351,7 @@ describe('Main', () => {
         inspectCommand: createCommand('inspect', []),
         logger,
         lintCommand: createCommand('lint', []),
+        pluginCommand: createCommand('plugin', []),
         resolveCommand: createCommand('resolve', []),
         updateCommand: createCommand('update', []),
       },
@@ -460,6 +472,7 @@ describe('Main', () => {
         inspectCommand: createCommand('inspect', []),
         logger: new FakeLogger(),
         lintCommand: createCommand('lint', []),
+        pluginCommand: createCommand('plugin', []),
         resolveCommand: createCommand('resolve', []),
         updateCommand: createCommand('update', []),
       },

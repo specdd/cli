@@ -49,8 +49,8 @@ export class Logger {
     this.write('error', message);
   }
 
-  public warn(message: string): void {
-    this.write('warning', message);
+  public warn(message: string, options: { force?: boolean } = {}): void {
+    this.write('warning', message, options.force);
   }
 
   public log(message: string): void {
@@ -89,8 +89,8 @@ export class Logger {
     return Object.hasOwn(NOTICE_LEVELS, level);
   }
 
-  private write(level: NoticeLevel, message: string): void {
-    if (NOTICE_LEVELS[level] > NOTICE_LEVELS[this.minimumLevel]) {
+  private write(level: NoticeLevel, message: string, force = false): void {
+    if (!force && NOTICE_LEVELS[level] > NOTICE_LEVELS[this.minimumLevel]) {
       return;
     }
 

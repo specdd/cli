@@ -11,6 +11,10 @@ LABEL org.opencontainers.image.title="SpecDD CLI" \
   org.opencontainers.image.licenses="Apache-2.0" \
   org.opencontainers.image.version="${SPECDD_VERSION}"
 
+RUN apt-get update \
+  && apt-get install --yes --no-install-recommends git openssh-client ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN test -n "${SPECDD_VERSION}" \
   && npm install --global --omit=dev --ignore-scripts --no-audit --no-fund "specdd@${SPECDD_VERSION}" \
   && npm cache clean --force \

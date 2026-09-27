@@ -1,0 +1,86 @@
+Spec: Plugin Source Service
+
+Purpose:
+  Resolve repository inputs, plugin names, and requested versions into a stable plugin source and installation identity.
+
+Owns:
+  ./plugin-source.ts
+  ./plugin-source.test.ts
+
+References:
+  /src/cli-error.sdd
+  /src/constants.sdd
+  /src/git-ref.sdd
+
+Must:
+  Expand the repository shorthand `\@owner/repository` to `git@github.com:owner/repository.git`, using SSH as the default transport.
+  Accept SSH URLs, SCP-style SSH repository addresses, and explicitly supplied HTTPS URLs, preserving the selected transport.
+  Remove trailing slashes and one terminal `.git` suffix from the repository path when deriving repository coordinates.
+  Derive repository coordinates from the lowercase hostname and every namespace and repository path segment, preserving path case.
+  Include a nondefault port as `host~port` in the host coordinate to distinguish repositories served on different ports.
+  Exclude transport scheme and authentication information from repository coordinates so equivalent HTTPS and SSH addresses share a destination.
+  Expose @PluginSourceDescriptor.isOfficialRepository when the parsed hostname is exactly `github.com` and the first validated path segment is `specdd`, comparing both case-insensitively and requiring a following repository segment, regardless of transport or explicit port.
+  Decode repository path segments only in SSH and HTTPS URLs; reject percent characters in SCP-style paths.
+  Reject empty repository paths, URL queries or fragments, and decoded path components containing traversal, path separators, or characters unsafe for a local directory name before URL or path normalization can hide them.
+  Require the plugin name to be one nonempty directory name, excluding `.` and `..`, path separators, and characters unsafe for a local directory name.
+  Resolve the repository file path exclusively to `.plugins/<pluginname>/plugin.md`.
+  Resolve its optional detached signature path to `.plugins/<pluginname>/plugin.md.asc`.
+  Resolve the managed relative destination to `plugins/<repocoords>/<pluginname>/plugin.md`, relative to the registry directory.
+  Preserve a supplied nonempty version verbatim as both the requested Git ref and registry `version`, including a leading `v` or a commit hash.
+  Validate supplied version spelling through @isValidGitRef.
+  Represent an omitted version as the remote default branch selection and registry `version` equal to `latest`.
+  Provide an origin repository URL preserving the supplied path spelling and terminal suffix, with no trailing slash, HTTPS user information, or SSH password; retain an SSH username when present.
+
+Must not:
+  Perform filesystem, network, or process operations.
+  Interpret versions as semantic version ranges or select GitHub releases.
+
+Exposes:
+  @PluginSource
+  @PluginSource.resolve
+
+Accepts:
+  repository input
+  plugin name
+  optional version
+
+Returns:
+  @PluginSourceDescriptor containing transport URL, origin repository URL, repository coordinates, official-source classification, repository file and detached signature paths, managed relative destination, optional Git ref, and registry version
+
+Raises:
+  @PluginSourceError extending @CliError for invalid repository, plugin name, or version input
+
+Scenario: GitHub shorthand
+  When @PluginSource.resolve receives `\@acme/specdd-plugins`, `review`, and `v1.2.0`
+  Then the repository URL is `git@github.com:acme/specdd-plugins.git`
+  And the repository coordinates are `github.com/acme/specdd-plugins`
+  And the source file is `.plugins/review/plugin.md`
+  And the managed relative destination is `plugins/github.com/acme/specdd-plugins/review/plugin.md`
+  And the registry version is `v1.2.0`
+
+Scenario: equivalent repository transports
+  When `https://github.com/acme/specdd-plugins.git` and `git@github.com:acme/specdd-plugins.git` are resolved for `review`
+  Then both managed destinations are `plugins/github.com/acme/specdd-plugins/review/plugin.md`
+
+Scenario: extensionless repository origin
+  When `git@host:team/plugins` is resolved for `review`
+  Then its origin repository URL remains `git@host:team/plugins`
+
+Scenario: percent escape in an SCP path
+  When `git@host:team/r%65po.git` is resolved for `review`
+  Then resolution fails with @PluginSourceError
+
+Scenario: explicit latest tag
+  When the supplied version is `latest`
+  Then the requested Git ref is literally `latest`
+  And the registry version is `latest`
+
+Scenario: omitted version
+  When no version is supplied
+  Then the remote default branch is selected
+  And the registry version is `latest`
+
+Scenario: official organization across transports
+  When `\@specdd/plugins`, `git@github.com:SpecDD/plugins.git`, or `https://github.com/specdd/plugins` is resolved
+  Then `isOfficialRepository` is `true`
+  And lookalike hostnames or organization names are not official sources

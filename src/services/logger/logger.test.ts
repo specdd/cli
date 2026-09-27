@@ -117,6 +117,13 @@ describe('Logger', () => {
     ]);
   });
 
+  it('always displays required warnings even when ordinary warnings are filtered', () => {
+    const { logger, stdout } = createLogger('error');
+    logger.warn('ordinary warning');
+    logger.warn('signature requires confirmation', { force: true, });
+    expect(stdout.messages).toEqual(['[warn] signature requires confirmation\n',]);
+  });
+
   it('accepts warn as an alias for warning level', () => {
     const { logger, stdout } = createLogger('warn');
 

@@ -22,6 +22,13 @@ Must:
   Read bytes from the provided path.
   Write bytes to the provided path.
   Keep parent directory creation separate from @FileSystem.writeFile.
+  Inspect a path without following its final symlink through @FileSystem.lstat and resolve existing symlinks through @FileSystem.realpath.
+  Atomically replace a file through @FileSystem.writeFileAtomic using a unique sibling temporary file and rename, preserving the preceding destination when replacement fails.
+  Keep parent directory creation separate from @FileSystem.writeFileAtomic and clean up its temporary files after failure.
+  Remove an explicitly supplied file or directory through @FileSystem.removePath, with recursive removal requiring an explicit option.
+  Run a callback under an exclusive filesystem lock through @FileSystem.withExclusiveLock, preventing callbacks using the same lock path from overlapping across processes.
+  Reject an already held lock without running the callback or removing that lock, and release an acquired lock after callback success or failure.
+  Preserve filesystem error details for callers of the path inspection, atomic replacement, removal, and locking operations.
 
 Depends on:
   Node.js filesystem
@@ -33,3 +40,8 @@ Exposes:
   @FileSystem.createDirectory
   @FileSystem.readFile
   @FileSystem.writeFile
+  @FileSystem.lstat
+  @FileSystem.realpath
+  @FileSystem.writeFileAtomic
+  @FileSystem.removePath
+  @FileSystem.withExclusiveLock

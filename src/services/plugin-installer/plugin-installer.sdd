@@ -1,0 +1,154 @@
+Spec: Plugin Installer Service
+
+Purpose:
+  Install or refresh a named plugin from Git and maintain its source, requested version, and content checksum in the current SpecDD project.
+
+Owns:
+  ./plugin-installer.ts
+  ./plugin-installer.test.ts
+
+References:
+  ../plugin-source/plugin-source.sdd
+  ../plugin-registry/plugin-registry.sdd
+  ../logger/logger.sdd
+  ../plugin-signature-verifier/plugin-signature-verifier.sdd
+  /src/infrastructure/confirmation-prompt.sdd
+  /src/infrastructure/git-client.sdd
+  /src/infrastructure/file-system.sdd
+  /src/cli-error.sdd
+
+Must:
+  Accept @PluginSource, @PluginRegistry, @GitClient, @FileSystem, @Logger, @PluginSignatureVerifier, and @ConfirmationPrompt through constructor parameters.
+  Accept an absolute project directory, repository input, plugin name, and optional version.
+  Require `.specdd/bootstrap.md` in the supplied project directory before downloading or writing project files.
+  Resolve the source through @PluginSource and validate the existing registry before downloading.
+  @PluginInstaller.add installs only the selected plugin file at `.specdd/plugins/<repocoords>/<pluginname>/plugin.md`.
+  @PluginInstaller.refresh requires the registration's resolved `src` to match its managed installation path and retains its original source spelling.
+  Before refreshing, verify under the project lock that the registration still exists and its `src`, `origin`, `sig`, and `version` match the selected registration; reject a concurrent registration change before downloading or writing.
+  Require the registry, lock, managed destination, and their existing ancestor paths inside the project to be free of symlinks that redirect project writes.
+  Reject a managed destination occupied by a non-regular file or an existing file without a matching registry entry.
+  Before replacing a registered file, verify that its bytes match the recorded `sig`; fail without overwriting locally modified content.
+  Restore a missing registered file from the requested source when its destination is otherwise safe.
+  Read the source file through @GitClient and compute its SHA-256 over the returned bytes without text decoding or newline conversion.
+  Read the plugin and its optional detached signature at the same commit, and verify through @PluginSignatureVerifier for both add and refresh before managed writes or a no-op result.
+  Require `vendorOnly` verification for official repositories identified by @PluginSource; only a verified vendor result permits add, refresh, or a no-op result.
+  Official-source verification failures raise @PluginInstallError naming the source and the embedded-key requirement, without prompting or changing managed plugin files or registry contents, and release the project lock.
+  For other repositories, when verification does not establish an accepted signer, show a reason-specific warning through @Logger even when ordinary warnings are filtered, and require explicit confirmation through @ConfirmationPrompt.
+  Include the source identity and resolved commit with warnings; distinguish missing or invalid signatures from valid signatures with insufficient identity validity, showing the latter's full fingerprint and validity.
+  Refusal raises @PluginInstallError without changing managed files or registry contents, and releases the project lock.
+  Recheck managed destination safety, plugin bytes, and the target registration's `src`, `origin`, `sig`, and `version` after verification and confirmation, before replacement or a no-op result; reject registrations that appear, disappear, or change while the operation is pending.
+  Record `origin` as the normalized origin repository URL followed by `#` and the full resolved commit identifier.
+  Record `src` as the managed relative destination for new installations, preserve it for refreshes, and record `version` as supplied by @PluginSource.
+  Protect registry read, destination checks, plugin replacement, and registry upsert with an exclusive project lock at `.specdd/plugins.lock`.
+  Report lock contention without mutating the registry or managed files.
+  Stage downloaded bytes before replacing the managed file, then commit the registry update through @PluginRegistry with the preceding registration or expected absence as a precondition.
+  On registry update failure, restore the previous managed file or remove a newly installed file; report any rollback failure with the affected path.
+  Return a no-op only when the installed bytes and all generated registry fields already match, including `version`.
+  Preserve unrelated registrations and managed plugin files when installing or replacing one plugin.
+  Report the resolved commit, requested version, installed path, registry path, and installed, replaced, or unchanged outcome through @Logger and the result.
+
+Must not:
+  Write plugin contents to external `src` paths obtained from existing registry entries.
+  Execute downloaded plugin contents or register other files from the source repository.
+
+Depends on:
+  @PluginSource
+  @PluginRegistry
+  @GitClient
+  @FileSystem
+  @Logger
+  Node.js SHA-256 hashing
+
+Exposes:
+  @PluginInstaller
+  @PluginInstaller.add
+  @PluginInstaller.refresh
+
+Accepts:
+  @PluginAddRequest
+  @PluginRefreshRequest
+
+Returns:
+  @PluginAddResult
+
+Raises:
+  @PluginInstallError extending @CliError for project state, destination conflicts, lock contention, and write or rollback failures
+
+Scenario: omitted version
+  Given an initialized project with no plugin registry
+  When `review` is added from `\@acme/specdd-plugins` without a version
+  Then `.plugins/review/plugin.md` from the remote default branch is installed at `.specdd/plugins/github.com/acme/specdd-plugins/review/plugin.md`
+  And the registry records `version` equal to `latest`, the resolved commit in `origin`, and the installed bytes' checksum in `sig`
+
+Scenario: explicit commit version
+  Given a commit identifier reachable from a repository branch or tag was supplied as the version
+  When a plugin is installed from that commit
+  Then `version` preserves the supplied commit identifier verbatim
+  And `origin` records its full resolved commit identifier
+
+Scenario: same content with a different requested version
+  Given a plugin was installed without a version
+  And tag `v1.2.0` resolves to the already installed commit and bytes
+  When that plugin is added with version `v1.2.0`
+  Then its existing registry entry records `version` equal to `v1.2.0`
+
+Scenario: unchanged installation
+  Given the installed bytes and registry fields match the requested installation
+  When the same plugin is added again
+  Then the result is unchanged
+  And the plugin file and registry are not rewritten
+
+Scenario: locally modified plugin
+  Given an installed plugin file no longer matches its recorded checksum
+  When the same plugin is added again
+  Then a @PluginInstallError is raised
+  And the plugin file and registry are unchanged
+
+Scenario: registry write failure
+  Given a registered plugin file matches its recorded checksum
+  When replacement bytes are installed but registry replacement fails
+  Then the preceding plugin bytes are restored and the preceding registry remains intact
+  And the installation reports failure
+
+Scenario: registration edited while verification is pending
+  Given a registered plugin is being refreshed
+  And its registration is removed or its source, origin, checksum, or version changes during verification or confirmation
+  When verification or confirmation completes
+  Then installation fails without overwriting the registry edit or changing the plugin bytes
+  And the project lock is released
+
+Scenario: registration edited during plugin replacement
+  Given the selected registration matched before the plugin file was replaced
+  And its registration changes before the registry update
+  When the registry precondition rejects the update
+  Then the previous plugin bytes are restored and the registry edit is preserved
+
+Scenario: missing source file
+  Given the selected commit has no `.plugins/review/plugin.md`
+  When `review` is added
+  Then installation fails without changing managed plugin files or registry contents
+
+Scenario: concurrent installation
+  Given another installation holds the project's plugin lock
+  When a plugin is added
+  Then a @PluginInstallError reports lock contention
+  And that attempt does not change managed plugin files or registry contents
+
+Scenario: unsigned plugin refused
+  Given the source has no detached signature
+  When the operator declines the default-No confirmation
+  Then installation fails without creating a plugin file or registry
+  And the project lock is released
+
+Scenario: untrusted identity
+  Given a valid signature has marginal identity validity in the local keyring
+  When the plugin is added or refreshed
+  Then the warning states that the signature is valid but identity trust is insufficient
+  And only explicit confirmation permits installation
+
+Scenario: official plugin without a vendor signature
+  Given a plugin comes from a repository under `github.com/specdd/`
+  And its signature is absent, invalid, expired, revoked, or made by a key outside the bundled SpecDD keys
+  When the plugin is added or refreshed
+  Then installation fails with an error explaining that an embedded-key signature is required
+  And no confirmation prompt is offered and the plugin and registry remain unchanged

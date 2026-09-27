@@ -17,6 +17,7 @@ References:
   ./commands/init.sdd
   ./commands/lint.sdd
   ./commands/inspect.sdd
+  ./commands/plugin/plugin.sdd
   ./commands/resolve.sdd
   ./commands/update.sdd
 
@@ -28,6 +29,7 @@ Must:
   Attach the update command instance exposed by @Container.
   Attach the check-update command instance exposed by @Container.
   Attach the agentskills command instance exposed by @Container.
+  Attach the `plugin` command group exposed by @Container.
   Attach the lint command instance exposed by @Container.
   Attach the inspect command instance exposed by @Container.
   Attach the resolve command instance exposed by @Container.

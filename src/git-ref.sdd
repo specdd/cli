@@ -1,0 +1,16 @@
+Spec: Git Ref Validation
+
+Purpose:
+  Define the accepted spelling of literal Git ref and commit identifiers.
+
+Owns:
+  ./git-ref.ts
+  ./git-ref.test.ts
+
+Must:
+  @isValidGitRef returns `false` for empty strings, whitespace or ASCII control characters, a leading `-`, trailing `/` or `.`, and any `..`, `@{`, or `//` sequence.
+  Also reject `~`, `^`, `:`, `?`, `*`, `[`, and backslash.
+  Return `true` for other spellings without resolving the identifier in a repository.
+
+Exposes:
+  @isValidGitRef

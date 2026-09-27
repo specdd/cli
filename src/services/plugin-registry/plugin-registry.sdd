@@ -1,0 +1,75 @@
+Spec: Plugin Registry Service
+
+Purpose:
+  Read and update the SpecDD plugin registry while preserving unrelated plugin registrations and resolving their file paths.
+
+Owns:
+  ./plugin-registry.ts
+  ./plugin-registry.test.ts
+
+References:
+  /src/infrastructure/file-system.sdd
+  /src/cli-error.sdd
+
+Must:
+  Accept @FileSystem and an injectable current-user home directory provider through constructor parameters.
+  Locate the registry at `.specdd/plugins.json`, beside the project's bootstrap.
+  Treat a missing registry as an empty array without creating it during a read.
+  Require the registry to be a JSON array of objects with nonempty string fields `src`, `origin`, `sig`, and `version`.
+  Require `sig` to contain exactly 64 lowercase hexadecimal characters representing the SHA-256 of the referenced file's exact bytes.
+  Treat `sig` as a content checksum, without interpreting it as a publisher signature.
+  Preserve `version` as the supplied version string or `latest` for an installation with no requested version.
+  Resolve relative `src` values against the directory containing `plugins.json`, preserve absolute paths, and expand a leading `~` to the current user's home directory.
+  Allow resolved source paths outside the project, including paths containing `..`.
+  Preserve the original `src` spelling when reading and rewriting existing entries.
+  Read registry metadata without requiring unrelated referenced files to exist or match their checksums.
+  Reject malformed JSON, invalid entries, and duplicate entries resolving to the same source path before writing.
+  Upsert an entry by its resolved source path, retaining its position when replacing and appending when new.
+  @pluginRegistrationsMatch compares the exact `src`, `origin`, `sig`, and `version` values, ignoring additional metadata; absent registrations match only other absent registrations.
+  @PluginRegistry.upsert accepts an optional expected registration; `null` requires the target to remain absent, while an entry must satisfy @pluginRegistrationsMatch with the registration read for that update; reject a failed precondition without writing.
+  Preserve the order and complete values of unrelated entries, including additional fields.
+  Write generated entries with `src`, `origin`, `sig`, and `version` string fields and a portable relative `src` using forward slashes.
+  Replace registry contents atomically so a failed write leaves the preceding registry intact.
+
+Must not:
+  Write plugin files through the paths recorded in registry entries.
+
+Depends on:
+  @FileSystem
+  Node.js path handling
+  Node.js home directory handling
+
+Exposes:
+  @PluginRegistry
+  @PluginRegistry.read
+  @PluginRegistry.resolveSourcePath
+  @PluginRegistry.upsert
+  @PluginRegistryEntry
+  @pluginRegistrationsMatch
+
+Raises:
+  @PluginRegistryError extending @CliError for invalid registry data or filesystem failures
+
+Scenario: external source paths
+  Given the registry is `/project/.specdd/plugins.json` and the home directory is `/home/alex`
+  When sources `../local/plugin.md`, `/shared/plugin.md`, and `~/plugins/plugin.md` are resolved
+  Then their paths are `/project/local/plugin.md`, `/shared/plugin.md`, and `/home/alex/plugins/plugin.md`
+  And the original registry strings are preserved
+
+Scenario: version metadata changes
+  Given a source is registered with version `latest`
+  When the same source is upserted with version `v1.2.0` and an unchanged checksum
+  Then the existing entry records version `v1.2.0`
+  And no duplicate entry is appended
+
+Scenario: malformed registry
+  Given an existing entry has no `version` field
+  When the registry is read for an installation
+  Then a @PluginRegistryError is raised
+  And the registry is unchanged
+
+Scenario: conditional update conflicts
+  Given an upsert expects the preceding registration
+  And that registration has been removed or its source, origin, checksum, or version has changed
+  When the registry is updated
+  Then a @PluginRegistryError is raised and the current registry bytes are preserved

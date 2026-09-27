@@ -129,6 +129,155 @@ specdd agentskills deploy --version 1.2.3
 
 `--user` cannot be combined with a target path.
 
+## Install Plugins
+
+Run from the project directory containing `.specdd/bootstrap.md`:
+
+```bash
+specdd plugin add @acme/specdd-plugins review
+specdd plugin add @acme/specdd-plugins review v1.2.0
+specdd plugin add git@gitlab.com:team/specdd-plugins.git review <commit>
+```
+
+The syntax is `specdd plugin add <repository> <pluginname> [version]`. GitHub shorthand `@owner/repository` uses
+`git@github.com:owner/repository.git`. Full SSH addresses and explicit HTTPS URLs are also supported. SCP-style path
+segments are limited to ASCII letters, digits, dots, underscores, and hyphens; percent escapes are rejected.
+Git and an SSH client must be installed for SSH repositories. Authentication uses your existing SSH agent and SSH
+configuration, including `SSH_AUTH_SOCK`, host aliases, and `GIT_SSH_COMMAND`. Load the repository's key into your agent
+before running the command. SpecDD keeps host-key verification enabled as configured by your SSH client and reports
+authentication failures without retrying over HTTPS.
+
+A named plugin must exist at `.plugins/<pluginname>/plugin.md` in the source repository. SpecDD fetches only branches
+and tags, including their history. The optional version is an exact tag, branch, or commit identifier reachable from
+a branch or tag; version strings such as `v1.2.0` are preserved. Pull-request refs and other ref namespaces are not
+fetched. When the version is omitted, the remote default branch is selected and the recorded version is `latest`.
+An explicitly supplied `latest` selects the Git ref with that name. A name shared by a branch and tag is rejected;
+use `refs/heads/<name>` or `refs/tags/<name>` to
+disambiguate. Semantic version ranges and GitHub release selection are not supported.
+
+Plugins may include a detached OpenPGP signature at `.plugins/<pluginname>/plugin.md.asc`. SpecDD reads both files
+from the same resolved commit and verifies the downloaded bytes before installation. Signatures from bundled,
+fingerprint-pinned SpecDD vendor keys are accepted automatically. Plugins from any repository under `github.com/specdd/`
+must verify against those embedded keys. This applies to shorthand such as `@specdd/plugins`, SSH, and HTTPS, including
+hostname and organization case variants. A missing, invalid, expired, revoked, or non-vendor signature fails with an
+error and exit status `1`; official sources never fall back to system trust or offer a confirmation override.
+
+For other repositories, signatures outside the bundled keys are checked with `gpg` using your
+local keyring and configuration (including `GNUPGHOME`); automatic acceptance requires full or ultimate identity
+validity. SpecDD does not retrieve or import keys or change their trust settings. GnuPG is optional for vendor-signed
+plugins and required for system-key verification; install it separately where needed, including in custom Docker images.
+
+For these other repositories, unsigned plugins and signatures that cannot be verified produce a warning and
+`Continue? [y/N]`, defaulting to No.
+A cryptographically valid signature with unknown or marginal identity validity receives a separate warning showing
+the signing key's full fingerprint and validity; `TRUST_NEVER` explicitly warns that the identity is untrusted.
+Expired or revoked keys receive specific warnings. Continue only after confirming that the signing key belongs to
+a vendor you trust. Only `y` or `yes` (case-insensitive) permits installation. Refusal, cancellation, or noninteractive
+input/output exits with status `1` without changing the plugin or registry. Required warnings remain visible regardless
+of `log_level`. These checks also apply to repeated additions and `plugin update`, including otherwise unchanged files.
+The registry's `sig` field remains a content checksum, separate from publisher signature verification.
+
+The installed file is `.specdd/plugins/<host>/<namespace>/<repository>/<pluginname>/plugin.md`. Repository coordinates
+retain nested namespaces, omit `.git`, and include a nondefault port as `<host>~<port>`. For example, the first command
+above installs `.specdd/plugins/github.com/acme/specdd-plugins/review/plugin.md`.
+
+`.specdd/plugins.json` records an array of objects with four string fields:
+
+| Field | Value |
+| --- | --- |
+| `src` | Plugin file path; generated entries use a path relative to `plugins.json`. |
+| `origin` | Repository address followed by `#` and the full resolved commit identifier. |
+| `sig` | Lowercase SHA-256 checksum of the exact installed file bytes. |
+| `version` | Supplied tag, branch, or commit string, or `latest` when omitted. |
+
+The origin preserves the repository path and any `.git` suffix; passwords and HTTPS user information are removed.
+
+Existing `src` values may be absolute, relative to `plugins.json` (including `../`), or start with `~` for your home
+directory. Unrelated registrations and their path spelling are preserved, even if their files are unavailable.
+Malformed registries, missing fields, and duplicate source paths are rejected before installation.
+
+Adding the same plugin again updates its registration. Identical bytes and metadata produce a no-op; changing only
+the requested version updates `version`. Existing files must be registered and match their recorded checksum before
+replacement, so local edits are preserved. Missing registered files can be restored by adding the plugin again.
+Changes to the target registration during download, verification, or confirmation cancel the operation, including
+otherwise unchanged installations. Unrelated registrations and additional metadata are preserved.
+Managed writes reject symlink paths. Registry write failures roll back the plugin file; a failed rollback reports its
+path. Concurrent installs are rejected while `.specdd/plugins.lock` is held. If a process is forcibly terminated,
+confirm no install is running before removing a stale lock; check the plugin against its recorded checksum before
+retrying. Successful commands exit with `0`; expected installation failures exit with `1` and a concise error.
+
+For Docker on Linux, forward an existing agent socket and mount SSH configuration and known hosts read-only:
+
+```bash
+docker run --rm -it --user "$(id -u):$(id -g)" \
+  -v "$PWD:/workspace" \
+  -v "$SSH_AUTH_SOCK:/ssh-agent" -e SSH_AUTH_SOCK=/ssh-agent \
+  -v "$HOME/.ssh:/home/node/.ssh:ro" \
+  ghcr.io/specdd/cli:latest plugin add @acme/specdd-plugins review
+```
+
+The container user must have a passwd entry and permission to access the agent socket, project directory, and SSH
+configuration; the image's `node` user has UID `1000`. If your UID differs, provide a matching container user setup and
+SSH home path. Docker Desktop requires its platform-specific SSH agent socket mount. The image includes Git and
+OpenSSH; SpecDD does not copy keys or start an agent.
+
+## List Plugins
+
+List the plugins registered in the current directory's `.specdd/plugins.json`:
+
+```bash
+specdd plugin list
+specdd plugin list --output json
+specdd plugin list --output json-extended
+```
+
+`--output` accepts `text` (the default), `json`, or `json-extended`. `--format` is an alias, consistent with the other
+read commands; when repeated, the last value wins. Text shows each plugin's source path, version, origin, and SHA-256
+checksum in registry order. JSON returns `rootDirectoryPath`, `registryPath`, and a `plugins` array with the four
+registry fields described above. Extended JSON also preserves any additional fields on each registration.
+
+A missing registry or empty array returns `No plugins installed.` in text or an empty `plugins` array in JSON,
+with exit status `0`. Listing does not require a bootstrap file or create files. It includes external registrations
+and preserves their source path spelling, even when the plugin file is unavailable; it does not verify files or
+contact Git repositories. Invalid output formats and unreadable or malformed registries fail with exit status `1`.
+
+## Update Plugins
+
+Refresh all managed plugins at their recorded versions, or select a repository and plugin with an optional version override:
+
+```bash
+specdd plugin update
+specdd plugin update @acme/specdd-plugins review
+specdd plugin update @acme/specdd-plugins review v2.0.0
+```
+
+With no arguments, `specdd plugin update` updates all managed plugins. For one plugin, use
+`specdd plugin update <repository> <pluginname> [version]`; repository and plugin name must be supplied together.
+Repository inputs and plugin names follow the same rules as `plugin add`, including GitHub shorthand, SSH addresses,
+and HTTPS URLs. Equivalent repository URLs resolve to the same canonical repository coordinates and plugin path.
+Only registrations whose resolved `src` is under the current project's `.specdd/plugins/` are selected; external
+registrations and their files are left untouched. The name is the directory immediately containing `plugin.md`, and
+the path must match the repository coordinates recorded in `origin`. Absolute, relative, and `~` source spelling is
+preserved when it resolves to a managed path.
+
+Updates fetch from the Git repository in `origin`, using the recorded `version`; the old commit fragment in `origin`
+is provenance, not the update target. A recorded `latest` follows the remote default branch. Pinned tags, branches,
+and commits keep their recorded values. An explicit version overrides and replaces the named plugin's recorded version.
+As with `add`, an explicit `latest` selects the Git ref named `latest`; use `refs/tags/latest` or `refs/heads/latest` to
+keep that meaning on subsequent updates. SSH uses the existing Git and agent authentication settings. The repository
+argument selects the installation; fetching still uses its recorded origin and transport.
+
+A targeted update requires a matching managed repository-and-plugin coordinate. Plugins with the same name in other
+repositories are left untouched. An uninstalled coordinate fails before downloading, and a bare plugin name is rejected.
+With no managed registrations, the command prints `No managed plugins installed.` and succeeds
+without creating files. Updating an installed plugin requires `.specdd/bootstrap.md`, as for `add`.
+
+Updates retain source spelling, registration order, and additional metadata while refreshing `origin`, `sig`, and
+`version`. They preserve the same checksum, symlink, locking, and rollback protections as `add`, and reject a
+registration changed after selection, including during verification or confirmation. All selected source metadata is
+validated before installation starts. Plugins are then processed in registry order; a failure stops the command with
+exit status `1`, retaining earlier successful updates. Successful commands exit with `0`.
+
 ## Inspect Specs
 
 Inspect SpecDD specs for the current directory:

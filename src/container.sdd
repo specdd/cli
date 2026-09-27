@@ -16,15 +16,27 @@ References:
   ./commands/init.sdd
   ./commands/lint.sdd
   ./commands/inspect.sdd
+  ./commands/plugin/plugin.sdd
+  ./commands/plugin/add.sdd
+  ./commands/plugin/list.sdd
+  ./commands/plugin/update.sdd
   ./commands/resolve.sdd
   ./commands/update.sdd
   ./infrastructure/fetch-client.sdd
   ./infrastructure/file-system.sdd
+  ./infrastructure/git-client.sdd
+  ./infrastructure/gpg-client.sdd
+  ./infrastructure/confirmation-prompt.sdd
   ./infrastructure/temp-directory.sdd
   ./services/bootstrap-metadata/bootstrap-metadata.sdd
   ./services/config/config.sdd
   ./services/config/readers/environment-reader.sdd
   ./services/logger/logger.sdd
+  ./services/plugin-source/plugin-source.sdd
+  ./services/plugin-registry/plugin-registry.sdd
+  ./services/plugin-installer/plugin-installer.sdd
+  ./services/plugin-signature-verifier/plugin-signature-verifier.sdd
+  ./services/plugin-updater/plugin-updater.sdd
   ./services/spec-linter/spec-linter.sdd
   ./services/spec-parser/spec-parser.sdd
   ./services/spec-resolver/spec-resolver.sdd
@@ -55,6 +67,7 @@ Must not:
 Depends on:
   @FetchClient
   @FileSystem
+  @GitClient
   @TempDirectory
   @Config
   @Logger
@@ -71,11 +84,22 @@ Depends on:
   @DistributionApplier
   @DistributionInstaller
   @AgentSkills
+  @PluginSource
+  @PluginRegistry
+  @PluginInstaller
+  @PluginSignatureVerifier
+  @GpgClient
+  @ConfirmationPrompt
+  @PluginUpdater
   @createCheckUpdateCommand
   @createAgentSkillsCommand
   @createInitCommand
   @createLintCommand
   @createInspectCommand
+  @createPluginCommand
+  @createPluginAddCommand
+  @createPluginListCommand
+  @createPluginUpdateCommand
   @createResolveCommand
   @createUpdateCommand
 
@@ -97,6 +121,15 @@ Exposes:
   @Container.distributionInstaller
   @Container.agentSkills
   @Container.agentSkillsCommand
+  @Container.pluginSource
+  @Container.pluginRegistry
+  @Container.pluginInstaller
+  @Container.pluginSignatureVerifier
+  @Container.pluginUpdater
+  @Container.pluginCommand
+  @Container.pluginAddCommand
+  @Container.pluginListCommand
+  @Container.pluginUpdateCommand
   @Container.checkUpdateCommand
   @Container.initCommand
   @Container.lintCommand

@@ -1,0 +1,36 @@
+Spec: Plugin Command Group
+
+Purpose:
+  Assemble the `plugin` command group and organize its subcommand modules.
+
+Structure:
+  ./plugin.ts: Plugin group assembly.
+  ./plugin.test.ts: Plugin group assembly and routing tests.
+  ./add.ts: Add subcommand handler.
+  ./add.test.ts: Add subcommand argument and help tests.
+  ./list.ts: List subcommand handler and output rendering.
+  ./list.test.ts: List subcommand options, output, and registry tests.
+  ./update.ts: Update subcommand handler.
+  ./update.test.ts: Update subcommand argument and help tests.
+
+Owns:
+  ./plugin.ts
+  ./plugin.test.ts
+
+References:
+  ./add.sdd
+  ./list.sdd
+  ./update.sdd
+
+Must:
+  @createPluginCommand receives a @PluginCommandContainer dependency object providing the prebuilt add, list, and update commands.
+  @createPluginCommand returns a command named `plugin` and attaches the supplied add, list, and update commands beneath it.
+  Group help lists the available subcommands.
+  Each subcommand's parsing and service invocation belong in its own same-basename handler and spec in this directory.
+
+Must not:
+  @createPluginCommand must not construct subcommand handlers or invoke plugin application services.
+
+Exposes:
+  @createPluginCommand
+  @PluginCommandContainer

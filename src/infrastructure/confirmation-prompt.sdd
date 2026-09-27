@@ -1,0 +1,22 @@
+Spec: Terminal Confirmation Prompt
+
+Purpose:
+  Obtain an explicit default-No confirmation from an interactive terminal.
+
+Owns:
+  ./confirmation-prompt.ts
+  ./confirmation-prompt.test.ts
+
+References:
+  ../constants.sdd
+
+Must:
+  Accept injectable input and output streams, defaulting to standard input and standard output.
+  Return `false` without reading input unless both streams are interactive terminals.
+  Display `Continue? [y/N] ` and accept only trimmed, case-insensitive `y` or `yes`.
+  Return `false` for all other answers, EOF, interruption, or stream failure.
+  Release the readline interface and event handlers after every outcome.
+
+Exposes:
+  @ConfirmationPrompt
+  @ConfirmationPrompt.confirm

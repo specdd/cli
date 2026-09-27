@@ -1,0 +1,38 @@
+Spec: Plugin Update Command
+
+Purpose:
+  Refresh managed plugins using their recorded versions or a requested version for one repository-qualified plugin.
+
+Owns:
+  ./update.ts
+  ./update.test.ts
+
+References:
+  /src/services/plugin-updater/plugin-updater.sdd
+
+Must:
+  Receive a @PluginUpdateCommandContainer providing @PluginUpdater.update.
+  Return an `update` command for attachment beneath the `plugin` group.
+  Expose `specdd plugin update [repository] [pluginname] [version]`.
+  Describe the optional version in help as a branch, tag, or commit reachable from a branch or tag.
+  Require repository and plugin name together for a targeted update; accept no arguments to update all managed plugins.
+  Reject a lone repository or bare plugin name before invoking the service.
+  Accept the same repository syntax as `plugin add`: GitHub shorthand, SSH addresses, and HTTPS URLs.
+  Forward the absolute current working directory, optional repository, optional plugin name, and optional version to @PluginUpdater.update.
+  Preserve omitted arguments as absent so the service can select all plugins or retain a recorded version.
+  Reject extra positional arguments and unknown options before invoking the service.
+
+Must not:
+  Read registry files, select registrations, resolve versions, or perform installations directly.
+
+Exposes:
+  @createPluginUpdateCommand
+  @PluginUpdateCommandContainer
+
+Scenario: all plugins
+  When `specdd plugin update` runs
+  Then @PluginUpdater.update receives no repository, plugin name, or version override
+
+Scenario: one plugin at a new version
+  When `specdd plugin update \@acme/plugins review v2.0.0` runs
+  Then @PluginUpdater.update receives repository `\@acme/plugins`, plugin name `review`, and version `v2.0.0`

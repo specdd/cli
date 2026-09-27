@@ -205,7 +205,15 @@ Runtime distribution verification is also self-contained:
 
 - Distribution signatures are verified in Node.js through the OpenPGP library.
 - Trusted SpecDD signing public keys are embedded in TypeScript source.
-- Runtime verification must not shell out to external `gpg` or other system commands.
+- Distribution verification must not shell out to external `gpg` or other system commands.
+
+Plugin signature verification first uses the same pinned vendor keys. Every repository under `github.com/specdd/`
+requires embedded-key verification for add and update, across shorthand, SSH, and HTTPS inputs. Verification failures
+are fatal for official sources, with no system-key fallback or confirmation override. Other repositories use the optional GnuPG
+adapter and the current user's keyring, accepting full or ultimate identity validity. Valid signatures with
+insufficient identity validity, absent signatures, and verification failures require explicit default-No terminal
+confirmation. The adapter disables automatic key lookup, retrieval, import, and trust-database refresh. GnuPG tests
+use isolated temporary keyrings; the real-GnuPG integration check is skipped when `gpg` is unavailable.
 
 After bumping the package version, run:
 

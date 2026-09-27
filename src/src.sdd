@@ -7,6 +7,8 @@ Structure:
   ./main.sdd: CLI entrypoint specification.
   ./cli-error.ts: Shared base class for expected CLI-facing errors.
   ./cli-error.sdd: Shared CLI error specification.
+  ./git-ref.ts: Shared lexical validation of Git ref and commit identifiers.
+  ./git-ref.sdd: Git ref validation specification.
   ./constants.ts: Shared constants for paths, URLs, asset names, and common CLI text.
   ./constants.sdd: Shared constants specification.
   ./container.ts: Application container for explicit service wiring.

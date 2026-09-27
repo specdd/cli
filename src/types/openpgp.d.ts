@@ -3,13 +3,29 @@ export type KeyID = {
 };
 
 export type PublicKey = {
+  readonly subkeys: Subkey[];
   armor(): string;
   getFingerprint(): string;
   getKeyIDs(): KeyID[];
   toPublic(): PublicKey;
+  getKeys(keyID?: KeyID): SigningKey[];
+  getSigningKey(keyID?: KeyID): Promise<SigningKey>;
+  getExpirationTime(): Promise<Date | number | null>;
+  isRevoked(): Promise<boolean>;
 };
 
-export type PrivateKey = PublicKey;
+export type SigningKey = {
+  getExpirationTime(): Promise<Date | number | null>;
+  isRevoked(): Promise<boolean>;
+};
+
+export type Subkey = SigningKey & {
+  revoke(primaryKey: PrivateKey['keyPacket']): Promise<Subkey>;
+};
+
+export type PrivateKey = PublicKey & {
+  readonly keyPacket: unknown;
+};
 
 export type Key = PublicKey;
 
@@ -21,6 +37,7 @@ export type Message = unknown;
 
 export type VerificationResult = {
   signatures: Array<{
+    keyID: KeyID;
     verified: Promise<true>;
   }>;
 };
@@ -37,6 +54,9 @@ export type UserID = {
 };
 
 export type GenerateKeyOptions = {
+  date?: Date;
+  keyExpirationTime?: number;
+  subkeys?: Array<{ sign?: boolean; keyExpirationTime?: number }>;
   curve?: 'ed25519Legacy';
   format: 'object';
   type?: 'ecc';
@@ -44,10 +64,12 @@ export type GenerateKeyOptions = {
 };
 
 export type SignOptions = {
+  date?: Date;
   detached: true;
   format: 'armored';
   message: Message;
-  signingKeys: PrivateKey;
+  signingKeys: PrivateKey | PrivateKey[];
+  signingKeyIDs?: KeyID[];
 };
 
 export type VerifyOptions = {
@@ -69,3 +91,9 @@ export function readSignature(options: { armoredSignature: string }): Promise<Si
 export function sign(options: SignOptions): Promise<string>;
 
 export function verify(options: VerifyOptions): Promise<VerificationResult>;
+
+export function revokeKey(options: {
+  key: PublicKey;
+  revocationCertificate: string;
+  format: 'object';
+}): Promise<{ publicKey: PublicKey }>;

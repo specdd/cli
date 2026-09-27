@@ -15,6 +15,11 @@ import { SpecTree } from './services/spec-tree/spec-tree.js';
 import { SpecDDVersion } from './services/specdd-version/specdd-version.js';
 import { UpdateChecker } from './services/update-checker/update-checker.js';
 import { Container } from './container.js';
+import { PluginSource } from './services/plugin-source/plugin-source.js';
+import { PluginRegistry } from './services/plugin-registry/plugin-registry.js';
+import { PluginSignatureVerifier } from './services/plugin-signature-verifier/plugin-signature-verifier.js';
+import { PluginInstaller } from './services/plugin-installer/plugin-installer.js';
+import { PluginUpdater } from './services/plugin-updater/plugin-updater.js';
 
 describe('Container', () => {
   it('builds and exposes shared application services', () => {
@@ -35,6 +40,16 @@ describe('Container', () => {
     expect(container.distributionApplier).toBeInstanceOf(DistributionApplier);
     expect(container.distributionInstaller).toBeInstanceOf(DistributionInstaller);
     expect(container.agentSkills).toBeInstanceOf(AgentSkills);
+    expect(container.pluginSource).toBeInstanceOf(PluginSource);
+    expect(container.pluginRegistry).toBeInstanceOf(PluginRegistry);
+    expect(container.pluginSignatureVerifier).toBeInstanceOf(PluginSignatureVerifier);
+    expect(container.pluginInstaller).toBeInstanceOf(PluginInstaller);
+    expect(container.pluginUpdater).toBeInstanceOf(PluginUpdater);
+    expect(container.pluginAddCommand.name()).toBe('add');
+    expect(container.pluginListCommand.name()).toBe('list');
+    expect(container.pluginUpdateCommand.name()).toBe('update');
+    expect(container.pluginCommand.name()).toBe('plugin');
+    expect(container.pluginCommand.commands).toEqual([container.pluginAddCommand, container.pluginListCommand, container.pluginUpdateCommand,]);
     expect(container.agentSkillsCommand).toBeInstanceOf(Command);
     expect(container.agentSkillsCommand.name()).toBe('agentskills');
     expect(container.checkUpdateCommand).toBeInstanceOf(Command);

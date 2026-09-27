@@ -4,10 +4,17 @@ import { createCheckUpdateCommand } from './commands/check-update.js';
 import { createInitCommand } from './commands/init.js';
 import { createInspectCommand } from './commands/inspect.js';
 import { createLintCommand } from './commands/lint.js';
+import { createPluginCommand } from './commands/plugin/plugin.js';
+import { createPluginAddCommand } from './commands/plugin/add.js';
+import { createPluginListCommand } from './commands/plugin/list.js';
+import { createPluginUpdateCommand } from './commands/plugin/update.js';
 import { createResolveCommand } from './commands/resolve.js';
 import { createUpdateCommand } from './commands/update.js';
 import { FetchClient } from './infrastructure/fetch-client.js';
 import { FileSystem } from './infrastructure/file-system.js';
+import { GitClient } from './infrastructure/git-client.js';
+import { GpgClient } from './infrastructure/gpg-client.js';
+import { ConfirmationPrompt } from './infrastructure/confirmation-prompt.js';
 import { TempDirectory } from './infrastructure/temp-directory.js';
 import { Config } from './services/config/config.js';
 import { ConfigDefaults } from './services/config/config-defaults.js';
@@ -18,6 +25,11 @@ import { DistributionApplier } from './services/distribution-applier/distributio
 import { DistributionClient } from './services/distribution-client/distribution-client.js';
 import { DistributionInstaller } from './services/distribution-installer/distribution-installer.js';
 import { Logger } from './services/logger/logger.js';
+import { PluginSource } from './services/plugin-source/plugin-source.js';
+import { PluginRegistry } from './services/plugin-registry/plugin-registry.js';
+import { PluginInstaller } from './services/plugin-installer/plugin-installer.js';
+import { PluginSignatureVerifier } from './services/plugin-signature-verifier/plugin-signature-verifier.js';
+import { PluginUpdater } from './services/plugin-updater/plugin-updater.js';
 import { SignatureVerifier } from './services/signature-verifier/signature-verifier.js';
 import { SpecLinter } from './services/spec-linter/spec-linter.js';
 import { SpecParser } from './services/spec-parser/spec-parser.js';
@@ -57,6 +69,24 @@ export class Container {
   public readonly distributionInstaller: DistributionInstaller;
 
   public readonly agentSkills: AgentSkills;
+
+  public readonly pluginSource: PluginSource;
+
+  public readonly pluginRegistry: PluginRegistry;
+
+  public readonly pluginInstaller: PluginInstaller;
+
+  public readonly pluginSignatureVerifier: PluginSignatureVerifier;
+
+  public readonly pluginUpdater: PluginUpdater;
+
+  public readonly pluginAddCommand: Command;
+
+  public readonly pluginListCommand: Command;
+
+  public readonly pluginUpdateCommand: Command;
+
+  public readonly pluginCommand: Command;
 
   public readonly agentSkillsCommand: Command;
 
@@ -159,6 +189,27 @@ export class Container {
     );
 
     this.agentSkillsCommand = createAgentSkillsCommand(this);
+
+    this.pluginSource = new PluginSource();
+    this.pluginRegistry = new PluginRegistry(fileSystem);
+    this.pluginSignatureVerifier = new PluginSignatureVerifier(
+      this.signatureVerifier,
+      new GpgClient(fileSystem, tempDirectory),
+    );
+    this.pluginInstaller = new PluginInstaller(
+      this.pluginSource,
+      this.pluginRegistry,
+      new GitClient(fileSystem, tempDirectory),
+      fileSystem,
+      this.logger,
+      this.pluginSignatureVerifier,
+      new ConfirmationPrompt(),
+    );
+    this.pluginUpdater = new PluginUpdater(this.pluginSource, this.pluginRegistry, this.pluginInstaller, this.logger);
+    this.pluginAddCommand = createPluginAddCommand(this);
+    this.pluginListCommand = createPluginListCommand(this);
+    this.pluginUpdateCommand = createPluginUpdateCommand(this);
+    this.pluginCommand = createPluginCommand(this);
 
     this.checkUpdateCommand = createCheckUpdateCommand(this);
 

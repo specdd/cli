@@ -1,0 +1,55 @@
+Spec: Plugin List Command
+
+Purpose:
+  List installed SpecDD plugin registrations from the current project's registry.
+
+Owns:
+  ./list.ts
+  ./list.test.ts
+
+References:
+  /src/services/plugin-registry/plugin-registry.sdd
+
+Must:
+  Receive a @PluginListCommandContainer dependency object providing @PluginRegistry.read.
+  Return a `list` command for attachment beneath the `plugin` group.
+  Expose `specdd plugin list [--output <format>]` without positional arguments.
+  Support `text`, `json`, and `json-extended` output, defaulting to `text`.
+  Accept `--format` as an alias for `--output`, using the last supplied value when repeated.
+  Validate the output format and reject extra arguments before reading the registry.
+  Read `.specdd/plugins.json` relative to the absolute current working directory through @PluginRegistry.read.
+  Preserve registry order and original `src` spelling, including absolute, relative, and home-directory paths.
+  Include every valid registration, even when its plugin file is unavailable.
+  Treat a missing registry or empty array as an empty list without requiring a bootstrap file.
+  Render text as a block per registration showing its `src`, `version`, `origin`, and SHA-256 `sig`; render an empty list as `No plugins installed.`.
+  Render JSON as an object with `rootDirectoryPath`, `registryPath`, and a `plugins` array containing each entry's `src`, `origin`, `sig`, and `version`.
+  Render extended JSON with the same context and complete registry entries, including additional metadata fields.
+  Write newline-terminated output to standard output without logger messages.
+  Propagate registry validation and read failures through the existing CLI error handling.
+
+Must not:
+  Write files, contact repositories, discover unregistered plugin files, or verify installed plugin checksums.
+  Read the filesystem directly.
+
+Depends on:
+  @PluginRegistry
+  Node.js current working directory and standard output
+
+Exposes:
+  @createPluginListCommand
+  @PluginListCommandContainer
+  @PluginListResult
+  @PluginListOutputFormat
+  @PluginListInvalidFormatError
+  @resolvePluginListOutputFormat
+  @renderPluginList
+
+Scenario: missing registry
+  Given the current directory has no `.specdd/plugins.json`
+  When `specdd plugin list --output json` runs
+  Then the result contains an empty `plugins` array and no files are created
+
+Scenario: unavailable external source
+  Given the registry contains a valid registration whose `src` is `~/plugins/review.md`
+  When `specdd plugin list` runs
+  Then that registration is listed with its original source spelling even if the source file is missing

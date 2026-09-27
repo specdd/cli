@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.0 - 2026-09-27
+
+### Added
+
+- Add `specdd plugin add` to install named plugins from GitHub shorthand, SSH addresses, and HTTPS URLs, with exact branch, tag, or commit selection from branch and tag history.
+- Add `specdd plugin list` with text, JSON, and extended JSON output for registered plugins.
+- Add `specdd plugin update` to refresh all managed plugins or a selected repository and plugin, with an optional version override.
+- Verify detached plugin signatures using bundled SpecDD keys or local GnuPG keys with full or ultimate identity validity; require explicit default-No confirmation for unsigned or unverified third-party plugins, with distinct warnings for insufficient identity validity.
+- Require plugins from every repository under `github.com/specdd/` to verify against the bundled SpecDD keys, failing without a confirmation override when verification fails.
+- Record plugin origins, requested versions, and SHA-256 checksums; protect installations and updates with local-edit checks, concurrent registration checks, symlink protection, project locking, and atomic replacement with rollback.
+
+### Fixed
+
+- Accept any valid, eligible bundled signer in detached signatures containing multiple signers, while rejecting expired or revoked primary keys and signing subkeys.
+
 ## 1.1.1 - 2026-05-31
 
 ### Changed

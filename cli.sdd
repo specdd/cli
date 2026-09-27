@@ -11,6 +11,7 @@ Structure:
   ./DEVELOPMENT.md: Contributor development documentation.
   ./package.json: npm package manifest, binary mapping, scripts, dependencies, and packaged file allowlist.
   ./Makefile: Development, package, and release automation.
+  ./Dockerfile: Published container runtime for the CLI.
   ./man/specdd.1: Installed Unix manual page for the specdd CLI.
   ./scripts/sync-man-version.mjs: Release helper that syncs and checks the man page version.
   ./src/: TypeScript CLI application source tree.
@@ -46,7 +47,8 @@ Can read:
 Must:
   Use TypeScript targeting the Node.js runtime declared by package.json.
   Expose a CLI named specdd.
-  Support init, update, check-update, agentskills deploy, inspect, lint, and resolve commands.
+  Support `init`, `update`, `check-update`, `agentskills deploy`, `plugin add`, `plugin list`, `plugin update`, `inspect`, `lint`, and `resolve` commands.
+  Document Git and an SSH client as runtime prerequisites for SSH plugin installation and provide both in the published Docker image.
   Keep CHANGELOG.md in Common Changelog format.
   Update CHANGELOG.md before tagging a release.
   Include CHANGELOG.md in npm package metadata.
@@ -67,6 +69,8 @@ Depends on:
   openpgp
   jszip
   jest
+  Git for repository-backed plugin installation
+  SSH client for agent-authenticated Git access
 
 Exposes:
   specdd CLI
@@ -77,3 +81,6 @@ Exposes:
   specdd inspect
   specdd resolve
   specdd lint
+  `specdd plugin add`
+  `specdd plugin list`
+  `specdd plugin update`

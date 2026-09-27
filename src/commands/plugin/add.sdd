@@ -1,0 +1,40 @@
+Spec: Plugin Add Command
+
+Purpose:
+  Install a named SpecDD plugin from a Git repository into the current project.
+
+Owns:
+  ./add.ts
+  ./add.test.ts
+
+References:
+  /src/services/plugin-installer/plugin-installer.sdd
+
+Must:
+  Receive a @PluginAddCommandContainer dependency object.
+  Return an `add` command for attachment beneath the `plugin` group.
+  Expose the command syntax `specdd plugin add <repository> <pluginname> [version]`.
+  Describe the optional version in help as a branch, tag, or commit reachable from a branch or tag.
+  Pass the repository, plugin name, optional version, and absolute current working directory to @PluginInstaller.add.
+  Preserve an omitted version as absent so source resolution can distinguish omission from an explicit Git ref named `latest`.
+  Reject missing required arguments and extra positional arguments before invoking the service.
+
+Must not:
+  Resolve Git refs, download plugin files, or write the plugin registry directly.
+
+Depends on:
+  @PluginInstaller
+  Node.js current working directory
+
+Exposes:
+  @createPluginAddCommand
+  @PluginAddCommandContainer
+
+Scenario: explicit version
+  Given the current directory is `/project`
+  When `specdd plugin add \@acme/specdd-plugins review v1.2.0` runs
+  Then @PluginInstaller.add receives `/project`, `\@acme/specdd-plugins`, `review`, and `v1.2.0`
+
+Scenario: omitted version
+  When `specdd plugin add \@acme/specdd-plugins review` runs
+  Then @PluginInstaller.add receives no requested version

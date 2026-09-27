@@ -1,0 +1,62 @@
+Spec: Plugin Updater Service
+
+Purpose:
+  Refresh managed plugins from their recorded Git repositories and requested versions.
+
+Owns:
+  ./plugin-updater.ts
+  ./plugin-updater.test.ts
+
+References:
+  ../plugin-source/plugin-source.sdd
+  ../plugin-registry/plugin-registry.sdd
+  ../plugin-installer/plugin-installer.sdd
+  ../logger/logger.sdd
+  /src/cli-error.sdd
+
+Must:
+  Accept @PluginSource, @PluginRegistry, @PluginInstaller, and @Logger through constructor parameters.
+  Accept an absolute project directory, an optional repository and plugin-name pair, and an optional version override.
+  Read the current project's `.specdd/plugins.json` through @PluginRegistry.
+  Select registered plugins whose resolved `src` lies beneath the project's `.specdd/plugins/` directory, retaining registry order.
+  Skip registrations outside that directory without fetching or modifying their files, including when their names match a requested name.
+  Select all managed registrations when neither repository nor plugin name is supplied.
+  Require repository and plugin name together and require that pair for a version override; reject incomplete requests before reading the registry.
+  Validate a supplied repository, plugin name, and version using @PluginSource.resolve before reading the registry.
+  Match a targeted registration by the canonical managed path derived from repository coordinates and plugin name, so equivalent repository transports select the same installation.
+  Allow identically named plugins from different repositories; update only the requested coordinate and report an uninstalled coordinate without falling back to another repository.
+  Use the recorded origin for fetching even when an equivalent transport URL was supplied as a selector.
+  Infer the plugin name from the parent directory of its registered `plugin.md` source path.
+  Resolve a Git repository from `origin`, removing a recorded full commit fragment when present; preserve SSH transport and delegate authentication to the existing installer.
+  Use the registration's version when no override is supplied; a recorded `latest` selects the remote default branch.
+  Preserve an explicit override verbatim using add's version rules, including a literal Git ref named `latest`.
+  Validate every selected repository, name, and version before starting any installation.
+  Resolve `src` through @PluginRegistry so absolute, relative, and home-directory spelling can identify the same managed destination.
+  Require every selected source to match the managed installation path derived from its recorded repository and inferred plugin name.
+  Delegate replacement of each selected registration to @PluginInstaller.refresh so signature verification and confirmation, checksum checks, locking, atomic replacement, rollback, and registry preservation remain in force.
+  Preserve original `src` spelling, entry order, additional metadata, and unselected registrations.
+  Report an empty selection without a target as `No managed plugins installed.` without writing files or accessing Git.
+  Process selected plugins sequentially; stop on the first failure, retain completed updates, and preserve the failed plugin according to installer rollback rules.
+  Return each successful installation result in registry order and report the completed count through @Logger.
+
+Exposes:
+  @PluginUpdater
+  @PluginUpdater.update
+  @PluginUpdateRequest
+  @PluginUpdateError
+
+Scenario: retained versions
+  Given one plugin records `latest` and another records `v1.2.0`
+  When all plugins are updated
+  Then the first follows the remote default branch and the second fetches `v1.2.0`
+
+Scenario: repository-qualified override
+  Given `review` is installed from both `\@acme/plugins` and `\@other/plugins`
+  When `\@acme/plugins review` is updated to `v2.0.0`
+  Then only the `acme/plugins` registration changes and its recorded version becomes `v2.0.0`
+  And the `other/plugins` registration and plugin file are unchanged
+
+Scenario: official repository update fails vendor verification
+  Given a managed plugin records an origin under `github.com/specdd/`
+  When its replacement lacks a valid signature from the bundled SpecDD keys
+  Then the installer rejects the update without prompting and preserves the plugin and registry

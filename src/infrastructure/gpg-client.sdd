@@ -1,0 +1,44 @@
+Spec: GnuPG Signature Client
+
+Purpose:
+  Verify detached signatures against the current user's local GnuPG keyring and report cryptographic and identity validity separately.
+
+Owns:
+  ./gpg-client.ts
+  ./gpg-client.test.ts
+
+References:
+  ./file-system.sdd
+  ./temp-directory.sdd
+  ../cli-error.sdd
+
+Must:
+  Accept @FileSystem, @TempDirectory, and an injectable @GpgProcessRunner.
+  Verify exact data and detached signature bytes in a unique temporary directory, removing that directory after success or failure.
+  Invoke `gpg` with an argument vector, no shell, batch mode, a bounded execution time, and explicitly named signature and data files.
+  Use the caller's GnuPG configuration and `GNUPGHOME`, disabling automatic key retrieval, import, lookup, and trust-database refresh.
+  Parse machine-readable status records, correlating fingerprint, cryptographic validity, and identity validity within each signature group.
+  Require successful process completion, `GOODSIG`, and `VALIDSIG` for a usable signature; accept identity validity only at `TRUST_FULLY` or `TRUST_ULTIMATE`.
+  Return valid signatures with unknown, marginal, or never-valid identities as untrusted, with full signing fingerprint and identity validity.
+  Report missing keys, invalid signatures, expiration, revocation, unavailable GnuPG, and verification failures distinctly; expiration and revocation take precedence over insufficient identity validity for the affected signature.
+  Report temporary-file and cleanup failures through @GpgClientError.
+
+Must not:
+  Interpret localized diagnostic text or signer user IDs as proof of successful verification.
+  Import signing keys or change ownertrust.
+
+Exposes:
+  @GpgClient
+  @GpgClient.verify
+  @GpgVerificationResult
+  @GpgProcessRunner
+
+Scenario: insufficient identity validity
+  Given GnuPG reports `GOODSIG`, `VALIDSIG`, and `TRUST_MARGINAL` for one signature
+  When verification completes successfully
+  Then the result is untrusted with marginal identity validity and the full signing fingerprint
+
+Scenario: mixed signature records
+  Given one signature has cryptographic validity and another has full identity validity
+  When status records are parsed
+  Then their evidence is not combined into a verified result

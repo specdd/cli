@@ -12,7 +12,7 @@ type MainErrorLogger = Pick<Logger, 'error'>;
 
 type MainContainer = Pick<
   Container,
-  'agentSkillsCommand' | 'checkUpdateCommand' | 'initCommand' | 'inspectCommand' | 'lintCommand' | 'resolveCommand' | 'updateCommand'
+  'agentSkillsCommand' | 'checkUpdateCommand' | 'initCommand' | 'inspectCommand' | 'lintCommand' | 'pluginCommand' | 'resolveCommand' | 'updateCommand'
 > & {
   readonly logger: MainErrorLogger;
 };
@@ -54,6 +54,7 @@ export class Main {
       .addCommand(this.container.initCommand)
       .addCommand(this.container.inspectCommand)
       .addCommand(this.container.lintCommand)
+      .addCommand(this.container.pluginCommand)
       .addCommand(this.container.resolveCommand)
       .addCommand(this.container.updateCommand);
 

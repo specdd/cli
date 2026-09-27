@@ -21,6 +21,17 @@ export const AGENTSKILLS_DIRECTORY_PATH = '.agents';
 export const AGENTSKILLS_SKILLS_DIRECTORY_PATH = `${AGENTSKILLS_DIRECTORY_PATH}/skills`;
 export const AGENTSKILLS_SKILL_PREFIX = 'specdd-';
 
+export const PLUGIN_REGISTRY_PATH = `${SPECDD_DIRECTORY_PATH}/plugins.json`;
+export const PLUGIN_DIRECTORY_PATH = `${SPECDD_DIRECTORY_PATH}/plugins`;
+export const PLUGIN_SOURCE_DIRECTORY_PATH = '.plugins';
+export const PLUGIN_FILE_NAME = 'plugin.md';
+export const PLUGIN_SIGNATURE_FILE_NAME = 'plugin.md.asc';
+export const CLI_CONTINUE_PROMPT = 'Continue? [y/N] ';
+export const PLUGIN_LOCK_PATH = `${SPECDD_DIRECTORY_PATH}/plugins.lock`;
+export const PLUGIN_GITHUB_HOST = 'github.com';
+export const SPECDD_GITHUB_ORGANIZATION = 'specdd';
+export const PLUGIN_DEFAULT_VERSION = 'latest';
+
 export const SPECDD_COPYRIGHT_NOTICE = 'Copyright (c) 2026 Matīss Treinis and SpecDD contributors';
 export const CLI_HELP_FOOTER = `\n${SPECDD_COPYRIGHT_NOTICE}\nSpec help: ${SPECDD_HOMEPAGE_URL}\nCLI help: ${SPECDD_CLI_HELP_URL}`;
 

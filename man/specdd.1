@@ -1,4 +1,4 @@
-.TH SPECDD 1 "May 2026" "specdd 1.1.1" "SpecDD CLI Manual"
+.TH SPECDD 1 "May 2026" "specdd 1.2.0" "SpecDD CLI Manual"
 .SH NAME
 specdd \- command-line tool for SpecDD workflows
 .SH SYNOPSIS
@@ -32,6 +32,19 @@ specdd \- command-line tool for SpecDD workflows
 .RB [ --format
 .IR format ]
 .br
+.B specdd plugin add
+.I repository pluginname
+.RI [ version ]
+.br
+.B specdd plugin list
+.RB [ --output
+.IR format ]
+.br
+.B specdd plugin update
+.RI [ repository ]
+.RI [ pluginname ]
+.RI [ version ]
+.br
 .B specdd resolve
 .I target
 .RB [ --root
@@ -54,6 +67,7 @@ specdd \- command-line tool for SpecDD workflows
 is a command-line tool for working with SpecDD framework-enabled
 projects. It initializes SpecDD project files, updates existing SpecDD
 installations, checks for framework updates, deploys SpecDD Agent Skills,
+installs, lists, and updates plugins,
 and inspects, resolves, or lints local
 .B .sdd
 specification files.
@@ -113,6 +127,175 @@ Directory blocks include parent-held directory specs such as
 and local directory specs such as
 .B src/foo/bar/bar.sdd
 when both govern the same directory.
+.TP
+.B plugin add repository pluginname [version]
+Install the repository file
+.B .plugins/<pluginname>/plugin.md
+into the current project, which must contain
+.BR .specdd/bootstrap.md .
+GitHub shorthand
+.B @owner/repository
+uses
+.BR git@github.com:owner/repository.git .
+SSH URLs, SCP-style SSH addresses, and explicit HTTPS URLs are supported.
+SCP-style path segments are limited to ASCII letters, digits, dots,
+underscores, and hyphens; percent escapes are rejected.
+Git and an SSH client are required for SSH access. Authentication uses the
+existing SSH agent and configuration; SSH failures do not fall back to HTTPS.
+Only branches and tags and their history are fetched. The optional version
+is an exact tag, branch, or commit identifier reachable from a branch or tag.
+Pull-request refs and other ref namespaces are not fetched.
+When omitted, the remote default branch is selected and the registry records
+.BR latest .
+An explicit
+.B latest
+selects that Git ref. Ambiguous branch/tag names fail; use
+.B refs/heads/<name>
+or
+.B refs/tags/<name>
+to disambiguate.
+.PP
+Plugins are stored at
+.BR .specdd/plugins/<host>/<namespace>/<repository>/<pluginname>/plugin.md .
+Coordinates omit the terminal
+.B .git
+suffix and retain nested namespaces. A nondefault port uses
+.BR <host>~<port> .
+The registry at
+.B .specdd/plugins.json
+is an array of objects with string fields
+.BR src ,
+.BR origin ,
+.BR sig ,
+and
+.BR version .
+Generated sources are relative to the registry directory. Existing sources
+may be absolute, relative, or start with a home-directory
+.BR ~ .
+Origin records the repository address and resolved commit separated by
+.BR # .
+It preserves the repository path and any
+.B .git
+suffix, removing passwords and HTTPS user information.
+Sig is the lowercase SHA-256 of the exact installed bytes; version preserves
+the supplied version or defaults to
+.BR latest .
+.PP
+Repeated additions update the existing registration. Identical content and
+metadata are unchanged. Locally modified and unregistered destination files
+are preserved with an error. Missing registered files may be restored.
+Changes to the target registration during download, verification, or
+confirmation cancel the operation, including otherwise unchanged installations.
+Unrelated entries are preserved. Malformed registries, duplicate source paths,
+and redirected symlink writes are rejected. Registry write failures roll back
+the installed file; rollback failures identify the affected path.
+Concurrent installs fail while
+.B .specdd/plugins.lock
+is held. After forcible termination, confirm no installation is running
+before removing a stale lock and verify the file against its recorded checksum.
+Expected plugin installation failures exit with status 1.
+.PP
+An optional detached OpenPGP signature at
+.B .plugins/<pluginname>/plugin.md.asc
+is read from the same resolved commit as the plugin. Valid signatures from
+bundled, fingerprint-pinned SpecDD vendor keys are accepted automatically.
+Every repository under
+.B github.com/specdd/
+requires verification against those embedded keys, including shorthand such as
+.BR @specdd/plugins ,
+SSH, and HTTPS inputs. Hostname and organization matching is case-insensitive.
+Missing, invalid, expired, revoked, or non-vendor signatures for official
+sources fail with an error and exit status 1, without system-key fallback or
+a confirmation override. This applies to additions, unchanged installations,
+and updates.
+.PP
+For other repositories, signatures outside the bundled keys are checked using the optional
+.B gpg
+executable and the current user's keyring, including
+.BR GNUPGHOME .
+Full or ultimate identity validity is required for automatic acceptance.
+Keys are not retrieved or imported, and trust settings are not changed.
+.PP
+For these other repositories, missing or unverifiable signatures produce a warning and
+.BR "Continue? [y/N]" ,
+defaulting to No. Valid signatures with insufficient identity validity receive
+a separate warning with the full signing fingerprint and validity; never-valid
+identities are explicitly reported as untrusted. Expired and revoked keys
+receive specific warnings. Continue only after independently confirming that
+the key belongs to a vendor you trust. Only case-insensitive y or yes permits
+installation. Refusal, cancellation, or noninteractive input/output exits with
+status 1 without modifying the plugin or registry. Required warnings are not
+filtered by log_level. Repeated additions, including unchanged installations,
+require the same verification. The registry checksum is separate from
+publisher signature verification. GnuPG must be installed separately for
+system-key verification, including in custom container images; interactive
+Docker confirmation requires a terminal, for example docker run -it.
+.TP
+.B plugin list
+List registrations from the current directory's
+.B .specdd/plugins.json
+in registry order. Text shows each source path, version, origin, and SHA-256
+checksum. Source spelling is preserved, including absolute, relative, and
+home-directory paths. Registrations are listed even when their files are
+unavailable; listing does not verify files or contact Git repositories.
+.PP
+A missing registry or empty array produces
+.B No plugins installed.
+in text or an empty plugins array in JSON, with exit status 0.
+No bootstrap file is required and no files are created.
+Invalid output formats and unreadable or malformed registries exit with status 1.
+.TP
+.B plugin update [repository] [pluginname] [version]
+Update all managed plugins with no arguments, or select a repository and
+plugin name together with an optional version override. Repository inputs
+and plugin names follow the same rules as
+.BR "plugin add" ,
+including GitHub shorthand, SSH addresses, and HTTPS URLs. Equivalent
+repository URLs select the same canonical repository-and-plugin coordinate.
+Only registrations whose resolved source is beneath the current project's
+.B .specdd/plugins/
+directory are selected. External registrations and files are untouched.
+The plugin name comes from the directory containing
+.BR plugin.md ,
+and the source must match the recorded repository's managed installation path.
+Absolute, relative, and home-directory source spelling is preserved.
+.PP
+Fetch from the Git repository recorded in
+.B origin
+using the recorded
+.BR version .
+The origin commit fragment records provenance and does not pin the update.
+A recorded
+.B latest
+tracks the remote default branch. Other recorded versions retain their exact
+tag, branch, or commit value. A supplied version overrides and replaces the
+named plugin's recorded version. An explicit
+.B latest
+selects that Git ref; use
+.B refs/tags/latest
+or
+.B refs/heads/latest
+to retain that selection on future updates. Existing SSH agent authentication
+and Git configuration apply. Fetching uses the recorded origin and transport,
+even if an equivalent transport URL was supplied as the selector.
+.PP
+An uninstalled repository-and-plugin coordinate fails before downloading.
+Plugins with the same name in other repositories are left untouched.
+A bare plugin name or repository is rejected; supply both or neither.
+No managed registrations produces
+.B No managed plugins installed.
+and exit status 0 without creating files. Updating an installed plugin
+requires the project's bootstrap file.
+.PP
+Preserve registry order, source spelling, and additional metadata, while
+refreshing origin, checksum, and version. Signature verification and
+confirmation, checksum, symlink, locking, and
+rollback protections from installation remain active. A registration changed
+after selection, including during verification or confirmation, is rejected.
+Validate all selected source metadata before
+installation; process plugins in registry order and stop on the first failure.
+Earlier successful updates remain installed. Success exits with status 0;
+expected failures exit with status 1.
 .TP
 .B resolve target
 Resolve specs relevant to
@@ -192,6 +375,33 @@ The default is
 .BR text .
 Compact JSON omits parser metadata. Extended JSON includes the full
 internal service result.
+.SH PLUGIN LIST OPTIONS
+.TP
+.BI --output " format"
+Set output format. Supported values are
+.BR text ,
+.BR json ,
+and
+.BR json-extended .
+The default is
+.BR text .
+JSON returns
+.BR rootDirectoryPath ,
+.BR registryPath ,
+and a
+.B plugins
+array with each registration's
+.BR src ,
+.BR origin ,
+.BR sig ,
+and
+.BR version .
+Extended JSON also preserves additional registration fields.
+.TP
+.BI --format " format"
+Alias for
+.BR --output .
+When either option is repeated, the last value wins.
 .SH RESOLVE OPTIONS
 .TP
 .BI --root " path"
@@ -246,6 +456,13 @@ The default is
 .BR text .
 .SH ENVIRONMENT
 .TP
+.B SSH_AUTH_SOCK
+Existing SSH agent socket inherited by Git for plugin access. SSH configuration,
+including host aliases and IdentityAgent, and explicit GIT_SSH or GIT_SSH_COMMAND
+settings are preserved. Container use requires an accessible agent socket and
+SSH configuration and known hosts mounted for the container user; see README
+for a Linux Docker example. The image provides Git and OpenSSH.
+.TP
 .B SPECDD_LOG_LEVEL
 Set CLI log verbosity. Supported values are
 .BR error ,
@@ -289,6 +506,15 @@ generated
 .B .agents/skills
 Project Agent Skills installation directory.
 .TP
+.B .specdd/plugins.json
+Plugin registrations with source, origin, checksum, and requested version.
+.TP
+.B .specdd/plugins
+Managed plugin files grouped by repository coordinates and plugin name.
+.TP
+.B .specdd/plugins.lock
+Exclusive lock held during plugin installation.
+.TP
 .B ~/.agents/skills
 User Agent Skills installation directory.
 .SH EXAMPLES
@@ -307,6 +533,18 @@ Deploy project Agent Skills:
 .TP
 Deploy user Agent Skills:
 .B specdd agentskills deploy --user
+.TP
+Install a plugin over SSH using the current agent:
+.B specdd plugin add @acme/specdd-plugins review v1.2.0
+.TP
+List installed plugins as JSON:
+.B specdd plugin list --output json
+.TP
+Update all managed plugins at their recorded versions:
+.B specdd plugin update
+.TP
+Update one plugin to a new version:
+.B specdd plugin update @acme/specdd-plugins review v2.0.0
 .TP
 Inspect selected sections:
 .B specdd inspect path/to/project --sections Purpose,Must,Tasks

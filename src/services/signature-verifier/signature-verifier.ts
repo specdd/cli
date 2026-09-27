@@ -5,6 +5,7 @@ import {
   verify,
   type PublicKey,
   type Signature,
+  type SigningKey,
 } from 'openpgp';
 import { CliError } from '../../cli-error.js';
 import type { FileReaderDependency } from '../../infrastructure/file-system.js';
@@ -59,6 +60,13 @@ export class SignatureInvalidError extends CliError {
   }
 }
 
+export class SignatureKeyValidityError extends CliError {
+  public constructor(public readonly reason: 'expired' | 'revoked') {
+    super(`SpecDD signing key is ${reason}.`);
+    this.name = 'SignatureKeyValidityError';
+  }
+}
+
 export class SignatureVerificationError extends CliError {
   public constructor(message: string) {
     super(message);
@@ -92,19 +100,41 @@ export class SignatureVerifier {
 
     const zipBytes = await this.readInputFile(request.zipPath);
     const signatureBytes = await this.readInputFile(request.signaturePath);
-    const signature = await this.readSignature(signatureBytes);
-    const trustedKeys = await this.loadTrustedKeys();
-    const signer = this.findTrustedSigner(signature, trustedKeys);
+    const signerFingerprint = await this.verifyBytes(zipBytes, signatureBytes);
 
-    await this.verifyDetachedSignature(zipBytes, signature, signer.publicKey);
-
-    this.logger.info(`Verified SpecDD distribution signature from ${signer.fingerprint}.`);
+    this.logger.info(`Verified SpecDD distribution signature from ${signerFingerprint}.`);
 
     return {
       signaturePath: request.signaturePath,
-      signerFingerprint: signer.fingerprint,
+      signerFingerprint,
       zipPath: request.zipPath,
     };
+  }
+
+  public async verifyBytes(bytes: Uint8Array, signatureBytes: Uint8Array): Promise<string> {
+    const signature = await this.readSignature(signatureBytes);
+    const trustedKeys = await this.loadTrustedKeys();
+    const signingKeyIds = signature.getSigningKeyIDs().map((keyId) => keyId.toHex().toLowerCase());
+    const signers = trustedKeys.filter((key) => key.keyIds.some((keyId) => signingKeyIds.includes(keyId)));
+
+    if (0 === signers.length) {
+      throw new SignatureUnknownSignerError(signingKeyIds.join(', '));
+    }
+
+    let validityError: SignatureKeyValidityError | undefined;
+
+    for (const signer of signers) {
+      try {
+        await this.verifyDetachedSignature(bytes, signature, signer.publicKey);
+        return signer.fingerprint;
+      } catch (error) {
+        if (error instanceof SignatureKeyValidityError) {
+          validityError = error;
+        }
+      }
+    }
+
+    throw validityError ?? new SignatureInvalidError();
   }
 
   private async readInputFile(path: string): Promise<Uint8Array> {
@@ -168,39 +198,65 @@ export class SignatureVerifier {
     };
   }
 
-  private findTrustedSigner(signature: Signature, trustedKeys: readonly LoadedTrustedKey[]): LoadedTrustedKey {
-    const signingKeyIds = signature.getSigningKeyIDs().map((keyId) => keyId.toHex().toLowerCase());
-    const signer = trustedKeys.find((trustedKey) => {
-      return trustedKey.keyIds.some((keyId) => signingKeyIds.includes(keyId));
-    });
-
-    if (undefined === signer) {
-      throw new SignatureUnknownSignerError(signingKeyIds.join(', '));
-    }
-
-    return signer;
-  }
-
   private async verifyDetachedSignature(
     zipBytes: Uint8Array,
     signature: Signature,
     publicKey: PublicKey,
   ): Promise<void> {
     try {
+      await this.checkKeyValidity(publicKey);
       const message = await createMessage({
         binary: zipBytes,
       });
       const verification = await verify({
-        expectSigned: true,
+        // Check each signature below; early rejection would hide revoked signing subkeys.
+        expectSigned: false,
         format: 'binary',
         message,
         signature,
         verificationKeys: publicKey,
       });
 
-      await verification.signatures[0]!.verified;
-    } catch {
+      const results = await Promise.allSettled(verification.signatures.map(async (signed) => {
+        const key = publicKey.getKeys(signed.keyID)[0];
+
+        if (key) {
+          await this.checkKeyValidity(key);
+        }
+
+        await signed.verified;
+        await publicKey.getSigningKey(signed.keyID);
+      }));
+
+      if (results.some((result) => 'fulfilled' === result.status)) {
+        return;
+      }
+
+      const invalidKey = results.find((result) => 'rejected' === result.status && result.reason instanceof SignatureKeyValidityError);
+
+      if (invalidKey && 'rejected' === invalidKey.status) {
+        throw invalidKey.reason;
+      }
+
       throw new SignatureInvalidError();
+    } catch (error) {
+      if (error instanceof SignatureKeyValidityError) {
+        throw error;
+      }
+
+      throw new SignatureInvalidError();
+    }
+  }
+
+  private async checkKeyValidity(key: SigningKey): Promise<void> {
+    if (await key.isRevoked()) {
+      throw new SignatureKeyValidityError('revoked');
+    }
+
+    const expiration = await key.getExpirationTime();
+
+    if (expiration instanceof Date && Date.now() >= expiration.getTime()) {
+      throw new SignatureKeyValidityError('expired');
     }
   }
 

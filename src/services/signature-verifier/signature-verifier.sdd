@@ -1,6 +1,6 @@
 Spec: Signature Verifier Service
 Purpose:
-  Verify a downloaded SpecDD distribution zip against its detached OpenPGP signature using bundled trusted project keys.
+  Verify detached OpenPGP signatures using bundled trusted project keys, including downloaded SpecDD distributions.
 
 Structure:
   ./signature-verifier.ts: Signature verifier service implementation.
@@ -21,6 +21,9 @@ Must:
   Accept a path to a distribution .zip file and a path to its matching .zip.asc detached signature file.
   Read the zip and detached signature through @FileSystem.
   Verify the detached signature against the exact zip file bytes.
+  @SignatureVerifier.verifyBytes accepts exact data and signature bytes and returns the verified bundled signer fingerprint without requiring files.
+  When no eligible bundled signature verifies, preserve primary-key and signing-subkey expiration or revocation as @SignatureKeyValidityError rather than @SignatureInvalidError.
+  Accept any cryptographically valid signature made by an eligible bundled key when a detached signature contains multiple signers.
   Load public release signing keys embedded in ./trusted-keys.ts as armored OpenPGP string constants.
   Pin trusted signing keys by full OpenPGP fingerprint.
   Accept signatures only from fingerprints listed in @TRUSTED_RELEASE_SIGNING_KEYS.
@@ -45,6 +48,7 @@ Depends on:
 Exposes:
   @SignatureVerifier
   @SignatureVerifier.verifyDistribution
+  @SignatureVerifier.verifyBytes
   @TrustedReleaseSigningKey
   @CODE_SIGNING_2026_01_PUBLIC_KEY
   @TRUSTED_RELEASE_SIGNING_KEYS
@@ -61,6 +65,7 @@ Raises:
   @SignatureUnknownSignerError
   @SignatureInvalidError
   @SignatureVerificationError
+  @SignatureKeyValidityError
 
 Handles:
   valid detached signature

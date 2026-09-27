@@ -21,7 +21,7 @@ Must:
   Write non-error notices to stdout.
   Accept @Config through constructor parameters.
   Read log_level from @Config.
-  Treat log_level as the minimum notice level to write.
+  Treat `log_level` as the minimum notice level to write unless @Logger.warn is called with `force` equal to `true` for a required warning.
   Support error, warning, warn, log, info, and debug log_level values.
   Validate log_level before writing notices.
   Allow output streams to be injected for tests.

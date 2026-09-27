@@ -15,6 +15,9 @@ Must:
   Provide constants for SpecDD bootstrap paths, release metadata, distribution assets, URLs, and common CLI text.
   Provide constants for Agent Skills release metadata, asset names, install paths, and skill prefixes.
   Provide constants for SpecDD version parsing and front matter parsing.
+  Provide constants for the plugin registry path, managed plugin directory, source plugin directory, plugin filename, project lock path, GitHub shorthand host, and default registry version.
+  Provide the plugin detached signature filename and default-No continuation prompt.
+  Provide the official SpecDD GitHub organization name.
   Keep values static and free of runtime side effects.
 
 Must not:
@@ -47,3 +50,13 @@ Exposes:
   @SPECDD_LEADING_V_VERSION_PATTERN
   @SPECDD_VERSION_PART_SEPARATOR
   @SPECDD_FRONT_MATTER_DELIMITER
+  @PLUGIN_REGISTRY_PATH
+  @PLUGIN_DIRECTORY_PATH
+  @PLUGIN_SOURCE_DIRECTORY_PATH
+  @PLUGIN_FILE_NAME
+  @PLUGIN_LOCK_PATH
+  @PLUGIN_GITHUB_HOST
+  @SPECDD_GITHUB_ORGANIZATION
+  @PLUGIN_DEFAULT_VERSION
+  @PLUGIN_SIGNATURE_FILE_NAME
+  @CLI_CONTINUE_PROMPT

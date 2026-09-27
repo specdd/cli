@@ -1,0 +1,85 @@
+Spec: Git Client
+
+Purpose:
+  Read regular files at one resolved commit from a remote Git repository through an isolated temporary repository.
+
+Owns:
+  ./git-client.ts
+  ./git-client.test.ts
+
+References:
+  ./file-system.sdd
+  ./temp-directory.sdd
+  ../cli-error.sdd
+  ../git-ref.sdd
+
+Must:
+  Accept @FileSystem, @TempDirectory, and an injectable process runner through constructor parameters.
+  Accept a repository transport URL, a repository-relative file path, and an optional exact tag, branch, or commit identifier reachable from a branch or tag.
+  Validate supplied ref spelling through @isValidGitRef before invoking Git.
+  Use the remote default branch when no ref is supplied.
+  Resolve the selected ref to a full commit identifier, including dereferencing annotated tags.
+  Report ambiguous refs and unavailable commits as errors rather than silently choosing another ref.
+  Fetch only branch and tag refs and their complete reachable history; other ref namespaces, including pull-request refs, are not fetched.
+  Fetch into a unique temporary repository without a working-tree checkout and read the file's exact blob bytes at the resolved commit.
+  Require every present tree entry to be a regular file; reject symlinks, directories, submodules, and missing required entries.
+  @GitClient.readFiles reads required and optional paths in one clone at the same resolved commit; only an absent optional tree entry is omitted from the result.
+  Invoke Git with an argument vector and shell execution disabled, separating user-supplied arguments from command options.
+  Restrict remote transports to HTTPS and SSH and preserve Git's normal credential and SSH authentication mechanisms.
+  Delegate SSH authentication to Git and the caller's SSH client using the existing agent, preserving `SSH_AUTH_SOCK`, SSH configuration including `IdentityAgent` and host aliases, and explicit `GIT_SSH` or `GIT_SSH_COMMAND` settings.
+  Preserve the caller's SSH host-key verification configuration.
+  Remove the temporary repository after successful reads and failed operations; report cleanup failure without hiding the original error.
+  Report a missing Git executable, authentication failure, unavailable repository, unresolved ref, and unreadable file through @GitClientError.
+  Exclude embedded authentication secrets from errors and diagnostics.
+
+Must not:
+  Check out repository files, initialize submodules, or run repository hooks and downloaded scripts.
+  Start a separate SSH agent, load or copy private keys, or manage SSH credentials directly.
+  Retry a failed SSH operation over HTTPS automatically.
+
+Depends on:
+  Git executable
+  SSH client and the caller's existing authentication agent for SSH transport
+  Node.js child process support
+  @FileSystem
+  @TempDirectory
+
+Exposes:
+  @GitClient
+  @GitClient.readFile
+  @GitClient.readFiles
+
+Returns:
+  @GitFileResult containing the full resolved commit identifier and exact file bytes
+  @GitFilesResult containing the full resolved commit identifier and a map of requested paths to exact blob bytes
+
+Raises:
+  @GitClientError extending @CliError
+
+Scenario: existing SSH agent
+  Given the caller has an authenticated SSH agent available through `SSH_AUTH_SOCK`
+  When @GitClient.readFile accesses an SSH repository
+  Then the Git process inherits that agent socket and the caller's SSH configuration
+  And authentication is delegated to Git and SSH without separate key handling
+
+Scenario: SSH authentication failure
+  Given the caller's SSH authentication cannot access the repository
+  When @GitClient.readFile accesses that repository
+  Then a @GitClientError reports the SSH authentication failure
+  And no HTTPS retry is attempted
+
+Scenario: pinned historical commit
+  Given a requested commit is reachable from a repository branch or tag
+  When @GitClient.readFile reads a file at that commit
+  Then it obtains that commit and returns the file bytes from that commit
+
+Scenario: commit reachable only through a pull-request ref
+  Given a commit is reachable only through `refs/pull/1/head` and not through any branch or tag
+  When that commit identifier or pull-request ref is requested
+  Then a @GitClientError reports that the requested ref is unavailable
+
+Scenario: symbolic link source
+  Given the requested file is a symbolic link in the selected commit
+  When @GitClient.readFile reads that path
+  Then a @GitClientError is raised
+  And the link target is not read
