@@ -229,6 +229,13 @@ To publish a release, update the Homebrew tap, and publish the Docker image afte
 make release
 ```
 
+After `npm publish`, the release waits for the package tarball URL to become available before continuing to Homebrew,
+Docker, and GitHub. It retries every ten seconds until the tarball is available or you interrupt it with Ctrl+C. Each
+request has a ten-second timeout; the wait has no attempt limit. Override `NPM_WAIT_DELAY` (in seconds) when needed.
+
+If you interrupt the wait, the package has already been published. Run `make wait-npm` to wait again, then resume with
+`make bump-homebrew`, `make docker-release`, and `make github-release`.
+
 To update only the Homebrew tap formula after an npm package has already been published, run:
 
 ```bash

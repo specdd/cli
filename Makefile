@@ -1,5 +1,6 @@
 NPM_CACHE ?= /tmp/specdd-npm-cache
 NPM := npm --cache $(NPM_CACHE)
+NPM_WAIT_DELAY ?= 10
 PACKAGE := specdd
 PACKAGE_VERSION := $(shell node -p "require('./package.json').version")
 VERSION ?= $(PACKAGE_VERSION)
@@ -21,7 +22,7 @@ NODE_IMAGE ?= node:22-bookworm-slim
 
 export DOCKER_CONFIG
 
-.PHONY: build install sync-shrinkwrap audit typecheck test dist man-sync man-check pack-check release release-preflight bump-homebrew github-release docker-config docker-build docker-smoke docker-builder docker-release docker-inspect
+.PHONY: build install sync-shrinkwrap audit typecheck test dist man-sync man-check pack-check release wait-npm release-preflight bump-homebrew github-release docker-config docker-build docker-smoke docker-builder docker-release docker-inspect
 
 build: install sync-shrinkwrap audit typecheck test dist man-check pack-check
 
@@ -57,6 +58,7 @@ pack-check:
 release: man-sync release-preflight build
 	@$(call CONFIRM,Publish $(PACKAGE)@$(VERSION) to npm?)
 	$(NPM) publish
+	$(MAKE) wait-npm
 	@$(call CONFIRM,Update Homebrew formula for $(PACKAGE)@$(VERSION)?)
 	$(MAKE) bump-homebrew
 	@$(call CONFIRM,Publish Docker images for $(PACKAGE)@$(VERSION)?)
@@ -64,6 +66,16 @@ release: man-sync release-preflight build
 	@$(call CONFIRM,Create GitHub release $(GITHUB_RELEASE_TAG)?)
 	$(MAKE) github-release
 	@echo "Release complete. Don't forget to commit and release the Homebrew repo."
+
+wait-npm:
+	@echo "Waiting for $(HOMEBREW_TARBALL_URL) to become available..."
+	@trap 'exit 130' INT; \
+	trap 'exit 143' TERM; \
+	until curl -fsSL --max-time 10 -o /dev/null "$(HOMEBREW_TARBALL_URL)"; do \
+		echo "Tarball unavailable; retrying in $(NPM_WAIT_DELAY)s..."; \
+		sleep "$(NPM_WAIT_DELAY)" || exit 1; \
+	done; \
+	echo "npm package tarball is available."
 
 release-preflight:
 	@git rev-parse --is-inside-work-tree >/dev/null
